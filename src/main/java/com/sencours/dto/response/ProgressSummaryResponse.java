@@ -1,0 +1,17 @@
+package com.sencours.dto.response;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class ProgressSummaryResponse {
+
+    private Integer totalLessons;
+    private Integer completedLessons;
+    private Double percentage;
+}
