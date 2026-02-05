@@ -1,0 +1,26 @@
+spring:
+  application:
+    name: sencours-backend-test
+
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.H2Dialect
+
+  h2:
+    console:
+      enabled: true
+
+jwt:
+  secret: VG9rZW5TZWNyZXRLZXlGb3JUZXN0aW5nUHVycG9zZXNPbmx5QmFzZTY0RW5jb2RlZA==
+  expiration: 86400000
