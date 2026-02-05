@@ -1,0 +1,4 @@
+-------------------------------------------------------------------------------
+Test set: com.sencours.controller.AuthControllerIntegrationTest$RegisterTests
+-------------------------------------------------------------------------------
+Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.491 s -- in com.sencours.controller.AuthControllerIntegrationTest$RegisterTests
