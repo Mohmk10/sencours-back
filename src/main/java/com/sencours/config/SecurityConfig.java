@@ -45,7 +45,7 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // Endpoints publics - Auth (register et login uniquement)
+                        // Endpoints publics - Auth
                         .requestMatchers("/api/v1/auth/register", "/api/v1/auth/login").permitAll()
 
                         // Swagger/OpenAPI
@@ -57,35 +57,43 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/sections/*/lessons").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/categories/**").permitAll()
 
-                        // Endpoints Admin
-                        .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
+                        // Super Admin - gestion des admins et instructeurs directs
+                        .requestMatchers("/api/v1/super-admin/**").hasRole("SUPER_ADMIN")
 
-                        // Reviews - authentifié (tous les rôles peuvent gérer leurs avis)
+                        // Admin - gestion candidatures et users (ADMIN + SUPER_ADMIN)
+                        .requestMatchers("/api/v1/admin/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
+
+                        // Candidatures instructeur - étudiants authentifiés
+                        .requestMatchers(HttpMethod.POST, "/api/v1/instructor-applications").hasRole("ETUDIANT")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/instructor-applications/my-application").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/instructor-applications/check").authenticated()
+
+                        // Reviews - authentifié
                         .requestMatchers(HttpMethod.POST, "/api/v1/courses/*/reviews").authenticated()
                         .requestMatchers(HttpMethod.PUT, "/api/v1/courses/*/reviews/*").authenticated()
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/courses/*/reviews/*").authenticated()
 
-                        // Gestion des cours - INSTRUCTEUR et ADMIN (sauf reviews déjà gérés)
-                        .requestMatchers(HttpMethod.POST, "/api/v1/courses").hasAnyRole("ADMIN", "INSTRUCTEUR")
-                        .requestMatchers(HttpMethod.PUT, "/api/v1/courses/*").hasAnyRole("ADMIN", "INSTRUCTEUR")
-                        .requestMatchers(HttpMethod.DELETE, "/api/v1/courses/*").hasAnyRole("ADMIN", "INSTRUCTEUR")
-                        .requestMatchers(HttpMethod.PATCH, "/api/v1/courses/**").hasAnyRole("ADMIN", "INSTRUCTEUR")
+                        // Gestion des cours - INSTRUCTEUR, ADMIN, SUPER_ADMIN
+                        .requestMatchers(HttpMethod.POST, "/api/v1/courses").hasAnyRole("INSTRUCTEUR", "ADMIN", "SUPER_ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/v1/courses/*").hasAnyRole("INSTRUCTEUR", "ADMIN", "SUPER_ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/v1/courses/*").hasAnyRole("INSTRUCTEUR", "ADMIN", "SUPER_ADMIN")
+                        .requestMatchers(HttpMethod.PATCH, "/api/v1/courses/**").hasAnyRole("INSTRUCTEUR", "ADMIN", "SUPER_ADMIN")
 
-                        // Sections et Leçons - INSTRUCTEUR et ADMIN
-                        .requestMatchers(HttpMethod.POST, "/api/v1/courses/*/sections/**").hasAnyRole("ADMIN", "INSTRUCTEUR")
-                        .requestMatchers(HttpMethod.PUT, "/api/v1/courses/*/sections/**").hasAnyRole("ADMIN", "INSTRUCTEUR")
-                        .requestMatchers(HttpMethod.DELETE, "/api/v1/courses/*/sections/**").hasAnyRole("ADMIN", "INSTRUCTEUR")
-                        .requestMatchers(HttpMethod.POST, "/api/v1/sections/*/lessons/**").hasAnyRole("ADMIN", "INSTRUCTEUR")
-                        .requestMatchers(HttpMethod.PUT, "/api/v1/sections/*/lessons/**").hasAnyRole("ADMIN", "INSTRUCTEUR")
-                        .requestMatchers(HttpMethod.DELETE, "/api/v1/sections/*/lessons/**").hasAnyRole("ADMIN", "INSTRUCTEUR")
+                        // Sections et Leçons
+                        .requestMatchers(HttpMethod.POST, "/api/v1/courses/*/sections/**").hasAnyRole("INSTRUCTEUR", "ADMIN", "SUPER_ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/v1/courses/*/sections/**").hasAnyRole("INSTRUCTEUR", "ADMIN", "SUPER_ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/v1/courses/*/sections/**").hasAnyRole("INSTRUCTEUR", "ADMIN", "SUPER_ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/sections/*/lessons/**").hasAnyRole("INSTRUCTEUR", "ADMIN", "SUPER_ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/v1/sections/*/lessons/**").hasAnyRole("INSTRUCTEUR", "ADMIN", "SUPER_ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/v1/sections/*/lessons/**").hasAnyRole("INSTRUCTEUR", "ADMIN", "SUPER_ADMIN")
 
-                        // Gestion des catégories - ADMIN uniquement
-                        .requestMatchers(HttpMethod.POST, "/api/v1/categories").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.PUT, "/api/v1/categories/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.DELETE, "/api/v1/categories/**").hasRole("ADMIN")
+                        // Catégories - ADMIN + SUPER_ADMIN
+                        .requestMatchers(HttpMethod.POST, "/api/v1/categories").hasAnyRole("ADMIN", "SUPER_ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/v1/categories/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/v1/categories/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
 
-                        // Gestion des utilisateurs - ADMIN uniquement
-                        .requestMatchers("/api/v1/users/**").hasRole("ADMIN")
+                        // Gestion des utilisateurs - ADMIN + SUPER_ADMIN
+                        .requestMatchers("/api/v1/users/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
 
                         // Tout le reste nécessite une authentification
                         .anyRequest().authenticated()
