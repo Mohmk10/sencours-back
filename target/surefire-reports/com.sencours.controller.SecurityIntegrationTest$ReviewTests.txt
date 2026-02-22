@@ -1,4 +1,0 @@
--------------------------------------------------------------------------------
-Test set: com.sencours.controller.SecurityIntegrationTest$ReviewTests
--------------------------------------------------------------------------------
-Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.851 s -- in com.sencours.controller.SecurityIntegrationTest$ReviewTests

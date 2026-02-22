@@ -1,4 +1,0 @@
--------------------------------------------------------------------------------
-Test set: com.sencours.controller.AdminControllerIntegrationTest$GetAllUsersPaginatedTests
--------------------------------------------------------------------------------
-Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 5.493 s -- in com.sencours.controller.AdminControllerIntegrationTest$GetAllUsersPaginatedTests

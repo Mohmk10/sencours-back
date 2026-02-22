@@ -1,4 +1,0 @@
--------------------------------------------------------------------------------
-Test set: com.sencours.controller.LessonControllerIntegrationTest$UpdateLessonTests
--------------------------------------------------------------------------------
-Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.220 s -- in com.sencours.controller.LessonControllerIntegrationTest$UpdateLessonTests

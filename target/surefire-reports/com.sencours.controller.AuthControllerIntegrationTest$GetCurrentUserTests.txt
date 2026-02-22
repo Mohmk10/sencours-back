@@ -1,4 +1,0 @@
--------------------------------------------------------------------------------
-Test set: com.sencours.controller.AuthControllerIntegrationTest$GetCurrentUserTests
--------------------------------------------------------------------------------
-Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.340 s -- in com.sencours.controller.AuthControllerIntegrationTest$GetCurrentUserTests
