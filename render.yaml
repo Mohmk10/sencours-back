@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: sencours-api
+    runtime: docker
+    repo: https://github.com/Mohmk10/sencours-back
+    branch: main
+    plan: free
+    healthCheckPath: /api/v1/categories
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      - key: DATABASE_URL
+        fromDatabase:
+          name: sencours-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+
+databases:
+  - name: sencours-db
+    plan: free
+    databaseName: sencours
+    user: sencours_user
