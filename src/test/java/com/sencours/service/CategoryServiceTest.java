@@ -7,6 +7,7 @@ import com.sencours.exception.ResourceAlreadyExistsException;
 import com.sencours.exception.ResourceNotFoundException;
 import com.sencours.mapper.CategoryMapper;
 import com.sencours.repository.CategoryRepository;
+import com.sencours.repository.CourseRepository;
 import com.sencours.service.impl.CategoryServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -31,6 +32,9 @@ class CategoryServiceTest {
 
     @Mock
     private CategoryRepository categoryRepository;
+
+    @Mock
+    private CourseRepository courseRepository;
 
     @Mock
     private CategoryMapper categoryMapper;
@@ -235,6 +239,7 @@ class CategoryServiceTest {
         @DisplayName("Devrait supprimer une catégorie avec succès")
         void shouldDeleteCategorySuccessfully() {
             when(categoryRepository.existsById(1L)).thenReturn(true);
+            when(courseRepository.findByCategoryId(1L)).thenReturn(List.of());
             doNothing().when(categoryRepository).deleteById(1L);
 
             categoryService.delete(1L);

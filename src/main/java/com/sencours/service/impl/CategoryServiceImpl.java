@@ -4,10 +4,12 @@ import com.sencours.dto.request.CategoryRequest;
 import com.sencours.dto.response.CategoryResponse;
 import com.sencours.dto.response.PageResponse;
 import com.sencours.entity.Category;
+import com.sencours.exception.BadRequestException;
 import com.sencours.exception.ResourceAlreadyExistsException;
 import com.sencours.exception.ResourceNotFoundException;
 import com.sencours.mapper.CategoryMapper;
 import com.sencours.repository.CategoryRepository;
+import com.sencours.repository.CourseRepository;
 import com.sencours.service.CategoryService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,6 +27,7 @@ import java.util.List;
 public class CategoryServiceImpl implements CategoryService {
 
     private final CategoryRepository categoryRepository;
+    private final CourseRepository courseRepository;
     private final CategoryMapper categoryMapper;
 
     @Override
@@ -90,6 +93,10 @@ public class CategoryServiceImpl implements CategoryService {
 
         if (!categoryRepository.existsById(id)) {
             throw new ResourceNotFoundException("Catégorie", "id", id);
+        }
+
+        if (!courseRepository.findByCategoryId(id).isEmpty()) {
+            throw new BadRequestException("Impossible de supprimer cette catégorie car des cours y sont associés");
         }
 
         categoryRepository.deleteById(id);

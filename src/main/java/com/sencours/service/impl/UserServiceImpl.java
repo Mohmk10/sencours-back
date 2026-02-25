@@ -6,10 +6,12 @@ import com.sencours.dto.response.PageResponse;
 import com.sencours.dto.response.UserResponse;
 import com.sencours.entity.User;
 import com.sencours.enums.Role;
+import com.sencours.exception.ForbiddenException;
 import com.sencours.exception.InvalidPasswordException;
 import com.sencours.exception.ResourceAlreadyExistsException;
 import com.sencours.exception.ResourceNotFoundException;
 import com.sencours.mapper.UserMapper;
+import com.sencours.repository.InstructorApplicationRepository;
 import com.sencours.repository.UserRepository;
 import com.sencours.service.UserService;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +31,7 @@ import java.util.List;
 public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
+    private final InstructorApplicationRepository instructorApplicationRepository;
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
 
@@ -128,11 +131,20 @@ public class UserServiceImpl implements UserService {
     public void delete(Long id) {
         log.info("Suppression de l'utilisateur avec ID: {}", id);
 
-        if (!userRepository.existsById(id)) {
-            throw new ResourceNotFoundException("Utilisateur", "id", id);
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Utilisateur", "id", id));
+
+        if (user.getRole() == Role.SUPER_ADMIN) {
+            throw new ForbiddenException("Impossible de supprimer un SUPER_ADMIN");
         }
 
-        userRepository.deleteById(id);
+        // Nullify reviewedBy references in instructor applications reviewed by this user
+        instructorApplicationRepository.findByReviewedById(id).forEach(app -> {
+            app.setReviewedBy(null);
+            instructorApplicationRepository.save(app);
+        });
+
+        userRepository.delete(user);
         log.info("Utilisateur supprimé avec succès. ID: {}", id);
     }
 

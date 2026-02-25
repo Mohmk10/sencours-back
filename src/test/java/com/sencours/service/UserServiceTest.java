@@ -9,6 +9,7 @@ import com.sencours.exception.InvalidPasswordException;
 import com.sencours.exception.ResourceAlreadyExistsException;
 import com.sencours.exception.ResourceNotFoundException;
 import com.sencours.mapper.UserMapper;
+import com.sencours.repository.InstructorApplicationRepository;
 import com.sencours.repository.UserRepository;
 import com.sencours.service.impl.UserServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
@@ -38,6 +39,9 @@ class UserServiceTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private InstructorApplicationRepository instructorApplicationRepository;
 
     @Mock
     private UserMapper userMapper;
@@ -254,12 +258,13 @@ class UserServiceTest {
         @Test
         @DisplayName("Devrait supprimer un utilisateur")
         void shouldDeleteUser() {
-            when(userRepository.existsById(1L)).thenReturn(true);
-            doNothing().when(userRepository).deleteById(1L);
+            when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+            when(instructorApplicationRepository.findByReviewedById(1L)).thenReturn(List.of());
+            doNothing().when(userRepository).delete(user);
 
             userService.delete(1L);
 
-            verify(userRepository).deleteById(1L);
+            verify(userRepository).delete(user);
         }
     }
 

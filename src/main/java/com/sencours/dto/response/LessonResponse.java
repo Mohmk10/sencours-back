@@ -19,5 +19,6 @@ public class LessonResponse {
     private Integer duration;
     private Integer orderIndex;
     private Boolean isFree;
+    private String videoUrl;
     private Long sectionId;
 }

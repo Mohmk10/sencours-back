@@ -45,6 +45,9 @@ public class Lesson {
     @JoinColumn(name = "section_id", nullable = false)
     private Section section;
 
-    @OneToMany(mappedBy = "lesson", fetch = FetchType.LAZY)
+    @Column(name = "video_url")
+    private String videoUrl;
+
+    @OneToMany(mappedBy = "lesson", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Progress> progresses = new ArrayList<>();
 }

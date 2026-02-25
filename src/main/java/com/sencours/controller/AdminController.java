@@ -7,11 +7,13 @@ import com.sencours.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -62,6 +64,19 @@ public class AdminController {
         Pageable pageable = createPageable(page, size, sort, direction);
         PageResponse<UserResponse> response = userService.searchUsersPaginated(search, pageable);
         return ResponseEntity.ok(response);
+    }
+
+    @DeleteMapping("/users/{id}")
+    @Operation(summary = "Supprimer un utilisateur", description = "Supprime un utilisateur et toutes ses données associées. Ne peut pas supprimer un SUPER_ADMIN.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "204", description = "Utilisateur supprimé avec succès"),
+            @ApiResponse(responseCode = "403", description = "Impossible de supprimer un SUPER_ADMIN"),
+            @ApiResponse(responseCode = "404", description = "Utilisateur non trouvé")
+    })
+    public ResponseEntity<Void> deleteUser(
+            @Parameter(description = "ID de l'utilisateur à supprimer") @PathVariable Long id) {
+        userService.delete(id);
+        return ResponseEntity.noContent().build();
     }
 
     private Pageable createPageable(int page, int size, String sort, String direction) {

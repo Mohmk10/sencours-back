@@ -21,4 +21,6 @@ public interface InstructorApplicationRepository extends JpaRepository<Instructo
     Page<InstructorApplication> findAllByOrderByCreatedAtDesc(Pageable pageable);
 
     long countByStatus(ApplicationStatus status);
+
+    java.util.List<InstructorApplication> findByReviewedById(Long userId);
 }

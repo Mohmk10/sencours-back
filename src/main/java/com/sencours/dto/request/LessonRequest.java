@@ -30,4 +30,6 @@ public class LessonRequest {
     private Integer duration;
 
     private Boolean isFree;
+
+    private String videoUrl;
 }
