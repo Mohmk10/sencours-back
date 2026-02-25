@@ -32,4 +32,6 @@ public class LessonRequest {
     private Boolean isFree;
 
     private String videoUrl;
+
+    private String quizData;
 }

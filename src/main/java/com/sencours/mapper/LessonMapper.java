@@ -23,6 +23,8 @@ public class LessonMapper {
                 .orderIndex(entity.getOrderIndex())
                 .isFree(entity.getIsFree())
                 .videoUrl(entity.getVideoUrl())
+                .filePath(entity.getFilePath())
+                .quizData(entity.getQuizData())
                 .sectionId(entity.getSection() != null ? entity.getSection().getId() : null)
                 .build();
     }
@@ -39,6 +41,7 @@ public class LessonMapper {
         lesson.setDuration(request.getDuration());
         lesson.setIsFree(request.getIsFree() != null ? request.getIsFree() : false);
         lesson.setVideoUrl(request.getVideoUrl());
+        lesson.setQuizData(request.getQuizData());
         lesson.setSection(section);
 
         return lesson;
@@ -57,5 +60,6 @@ public class LessonMapper {
             entity.setIsFree(request.getIsFree());
         }
         entity.setVideoUrl(request.getVideoUrl());
+        entity.setQuizData(request.getQuizData());
     }
 }

@@ -20,5 +20,7 @@ public class LessonResponse {
     private Integer orderIndex;
     private Boolean isFree;
     private String videoUrl;
+    private String filePath;
+    private String quizData;
     private Long sectionId;
 }

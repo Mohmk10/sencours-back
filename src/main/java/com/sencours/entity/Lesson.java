@@ -48,6 +48,12 @@ public class Lesson {
     @Column(name = "video_url")
     private String videoUrl;
 
+    @Column(name = "file_path")
+    private String filePath;
+
+    @Column(name = "quiz_data", columnDefinition = "TEXT")
+    private String quizData;
+
     @OneToMany(mappedBy = "lesson", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Progress> progresses = new ArrayList<>();
 }

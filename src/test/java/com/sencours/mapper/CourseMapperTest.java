@@ -24,7 +24,9 @@ class CourseMapperTest {
 
     @BeforeEach
     void setUp() {
-        courseMapper = new CourseMapper();
+        LessonMapper lessonMapper = new LessonMapper();
+        SectionMapper sectionMapper = new SectionMapper(lessonMapper);
+        courseMapper = new CourseMapper(sectionMapper);
 
         instructor = new User();
         instructor.setId(1L);

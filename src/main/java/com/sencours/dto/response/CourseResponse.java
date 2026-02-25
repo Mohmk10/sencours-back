@@ -8,6 +8,8 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Data
 @Builder
@@ -31,4 +33,10 @@ public class CourseResponse {
 
     private Long categoryId;
     private String categoryName;
+
+    @Builder.Default
+    private List<SectionResponse> sections = new ArrayList<>();
+
+    private Integer totalLessons;
+    private Integer totalDuration;
 }
