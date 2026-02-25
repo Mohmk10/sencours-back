@@ -5,6 +5,7 @@ import com.sencours.dto.response.CourseResponse;
 import com.sencours.dto.response.PageResponse;
 import com.sencours.entity.User;
 import com.sencours.enums.Status;
+import com.sencours.exception.BadRequestException;
 import com.sencours.exception.ResourceNotFoundException;
 import com.sencours.repository.UserRepository;
 import com.sencours.service.CourseService;
@@ -22,11 +23,13 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/courses")
@@ -171,6 +174,30 @@ public class CourseController {
             @Parameter(description = "ID du cours") @PathVariable Long id) {
         CourseResponse response = courseService.archive(id);
         return ResponseEntity.ok(response);
+    }
+
+    @PatchMapping("/{id}/status")
+    @Operation(summary = "Changer le statut d'un cours", description = "Change le statut d'un cours (DRAFT, PUBLISHED, ARCHIVED)")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Statut du cours mis à jour avec succès",
+                    content = @Content(schema = @Schema(implementation = CourseResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Statut invalide"),
+            @ApiResponse(responseCode = "403", description = "Droits insuffisants"),
+            @ApiResponse(responseCode = "404", description = "Cours non trouvé")
+    })
+    @PreAuthorize("hasAnyRole('INSTRUCTEUR', 'ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<CourseResponse> updateStatus(
+            @Parameter(description = "ID du cours") @PathVariable Long id,
+            @RequestBody Map<String, String> request,
+            @AuthenticationPrincipal UserDetails userDetails) {
+
+        String newStatus = request.get("status");
+        if (newStatus == null || (!newStatus.equals("PUBLISHED") && !newStatus.equals("DRAFT") && !newStatus.equals("ARCHIVED"))) {
+            throw new BadRequestException("Le statut doit être 'PUBLISHED', 'DRAFT' ou 'ARCHIVED'");
+        }
+
+        CourseResponse course = courseService.updateStatus(id, newStatus, userDetails.getUsername());
+        return ResponseEntity.ok(course);
     }
 
     // Paginated endpoints

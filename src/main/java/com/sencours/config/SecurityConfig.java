@@ -54,6 +54,9 @@ public class SecurityConfig {
                         // Utilitaires publics (hash BCrypt)
                         .requestMatchers("/api/v1/utility/**").permitAll()
 
+                        // Fichiers statiques uploadés
+                        .requestMatchers("/uploads/**").permitAll()
+
                         // Lecture publique des cours, sections, leçons et catégories
                         .requestMatchers(HttpMethod.GET, "/api/v1/courses/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/sections/*/lessons/**").permitAll()
@@ -83,6 +86,10 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/v1/courses/*/reviews").authenticated()
                         .requestMatchers(HttpMethod.PUT, "/api/v1/courses/*/reviews/*").authenticated()
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/courses/*/reviews/*").authenticated()
+
+                        // Upload de fichiers - INSTRUCTEUR, ADMIN, SUPER_ADMIN
+                        .requestMatchers(HttpMethod.POST, "/api/v1/files/upload").hasAnyRole("INSTRUCTEUR", "ADMIN", "SUPER_ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/v1/files").hasAnyRole("INSTRUCTEUR", "ADMIN", "SUPER_ADMIN")
 
                         // Gestion des cours - INSTRUCTEUR, ADMIN, SUPER_ADMIN
                         .requestMatchers(HttpMethod.POST, "/api/v1/courses").hasAnyRole("INSTRUCTEUR", "ADMIN", "SUPER_ADMIN")

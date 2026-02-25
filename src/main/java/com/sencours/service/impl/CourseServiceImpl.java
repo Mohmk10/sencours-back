@@ -8,6 +8,8 @@ import com.sencours.entity.Course;
 import com.sencours.entity.User;
 import com.sencours.enums.Role;
 import com.sencours.enums.Status;
+import com.sencours.exception.BadRequestException;
+import com.sencours.exception.ForbiddenException;
 import com.sencours.exception.InstructorNotFoundException;
 import com.sencours.exception.InvalidInstructorRoleException;
 import com.sencours.exception.ResourceNotFoundException;
@@ -188,6 +190,33 @@ public class CourseServiceImpl implements CourseService {
 
         log.info("Cours archivé avec succès. ID: {}", id);
         return courseMapper.toResponse(updatedCourse);
+    }
+
+    @Override
+    public CourseResponse updateStatus(Long courseId, String status, String userEmail) {
+        log.info("Changement de statut du cours ID: {} vers {}", courseId, status);
+
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Cours", "id", courseId));
+
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("Utilisateur non trouvé"));
+
+        if (!course.getInstructor().getId().equals(user.getId())
+                && user.getRole() != Role.ADMIN
+                && user.getRole() != Role.SUPER_ADMIN) {
+            throw new ForbiddenException("Vous n'avez pas les droits sur ce cours");
+        }
+
+        try {
+            course.setStatus(Status.valueOf(status));
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestException("Statut invalide: " + status);
+        }
+
+        Course savedCourse = courseRepository.save(course);
+        log.info("Statut du cours mis à jour avec succès. ID: {}, Nouveau statut: {}", courseId, status);
+        return courseMapper.toResponse(savedCourse);
     }
 
     @Override

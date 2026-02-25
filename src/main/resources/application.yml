@@ -21,8 +21,18 @@ spring:
         format_sql: true
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
+  servlet:
+    multipart:
+      max-file-size: 500MB
+      max-request-size: 500MB
+
 server:
   port: 8080
+
+app:
+  upload:
+    dir: uploads
+  base-url: http://localhost:8080
 
 jwt:
   secret: VG9rZW5TZWNyZXRLZXlGb3JTZW5Db3Vyc0VsZWFybmluZ1BsYXRmb3JtMjAyNA==

@@ -32,6 +32,8 @@ public interface CourseService {
 
     CourseResponse archive(Long id);
 
+    CourseResponse updateStatus(Long courseId, String status, String userEmail);
+
     // Pagination methods
     PageResponse<CourseResponse> getAllPaginated(Pageable pageable);
 
