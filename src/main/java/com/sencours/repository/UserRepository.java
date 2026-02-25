@@ -28,4 +28,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
             String firstName, String lastName, String email, Pageable pageable);
 
     void deleteAllByIdNot(Long id);
+
+    List<User> findAllByDeletedAtIsNullOrderByCreatedAtDesc();
+
+    Optional<User> findByEmailAndDeletedAtIsNull(String email);
 }

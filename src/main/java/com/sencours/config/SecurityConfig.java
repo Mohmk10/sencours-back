@@ -70,6 +70,9 @@ public class SecurityConfig {
                         // Admin - gestion candidatures et users (ADMIN + SUPER_ADMIN)
                         .requestMatchers("/api/v1/admin/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
 
+                        // Contestations de suspension
+                        .requestMatchers("/api/v1/appeals/**").authenticated()
+
                         // Candidatures instructeur - étudiants authentifiés
                         .requestMatchers(HttpMethod.POST, "/api/v1/instructor-applications").hasRole("ETUDIANT")
                         .requestMatchers(HttpMethod.GET, "/api/v1/instructor-applications/my-application").authenticated()

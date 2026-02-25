@@ -14,6 +14,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -83,14 +85,11 @@ public class AdminServiceImpl implements AdminService {
             throw new ForbiddenException("Vous ne pouvez pas supprimer votre propre compte");
         }
 
-        // Nullify reviewedBy references in instructor applications reviewed by this user
-        instructorApplicationRepository.findByReviewedById(targetUser.getId()).forEach(app -> {
-            app.setReviewedBy(null);
-            instructorApplicationRepository.save(app);
-        });
+        // SOFT DELETE : marquer comme supprimé au lieu de supprimer vraiment
+        targetUser.setDeletedAt(LocalDateTime.now());
+        targetUser.setIsActive(false);
+        userRepository.save(targetUser);
 
-        userRepository.delete(targetUser);
-
-        log.info("Utilisateur {} supprimé par {}", userId, currentUserEmail);
+        log.info("Utilisateur {} soft-deleted par {}", userId, currentUserEmail);
     }
 }

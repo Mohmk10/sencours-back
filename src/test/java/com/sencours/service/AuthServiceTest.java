@@ -5,6 +5,7 @@ import com.sencours.dto.request.RegisterRequest;
 import com.sencours.dto.response.AuthResponse;
 import com.sencours.entity.User;
 import com.sencours.enums.Role;
+import com.sencours.exception.AccountDeletedException;
 import com.sencours.exception.EmailAlreadyExistsException;
 import com.sencours.exception.InvalidCredentialsException;
 import com.sencours.repository.UserRepository;
@@ -18,10 +19,9 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -147,6 +147,7 @@ class AuthServiceTest {
         @DisplayName("Devrait connecter un utilisateur avec succès")
         void shouldLoginUserSuccessfully() {
             when(userRepository.findByEmail(loginRequest.getEmail())).thenReturn(Optional.of(user));
+            when(passwordEncoder.matches("password123", "encodedPassword")).thenReturn(true);
             when(jwtService.generateToken(user)).thenReturn("jwt.token.here");
 
             AuthResponse result = authService.login(loginRequest);
@@ -155,15 +156,13 @@ class AuthServiceTest {
             assertThat(result.getToken()).isEqualTo("jwt.token.here");
             assertThat(result.getUserId()).isEqualTo(1L);
             assertThat(result.getEmail()).isEqualTo("mohamed@sencours.sn");
-
-            verify(authenticationManager).authenticate(any(UsernamePasswordAuthenticationToken.class));
         }
 
         @Test
-        @DisplayName("Devrait lever une exception si les credentials sont invalides")
-        void shouldThrowExceptionWhenCredentialsInvalid() {
-            doThrow(new BadCredentialsException("Bad credentials"))
-                    .when(authenticationManager).authenticate(any(UsernamePasswordAuthenticationToken.class));
+        @DisplayName("Devrait lever une exception si le mot de passe est invalide")
+        void shouldThrowExceptionWhenPasswordInvalid() {
+            when(userRepository.findByEmail(loginRequest.getEmail())).thenReturn(Optional.of(user));
+            when(passwordEncoder.matches("password123", "encodedPassword")).thenReturn(false);
 
             assertThatThrownBy(() -> authService.login(loginRequest))
                     .isInstanceOf(InvalidCredentialsException.class);
@@ -176,6 +175,32 @@ class AuthServiceTest {
 
             assertThatThrownBy(() -> authService.login(loginRequest))
                     .isInstanceOf(InvalidCredentialsException.class);
+        }
+
+        @Test
+        @DisplayName("Devrait lever une exception si le compte est supprimé (soft delete)")
+        void shouldThrowExceptionWhenAccountDeleted() {
+            user.setDeletedAt(LocalDateTime.of(2025, 1, 15, 10, 0));
+            when(userRepository.findByEmail(loginRequest.getEmail())).thenReturn(Optional.of(user));
+
+            assertThatThrownBy(() -> authService.login(loginRequest))
+                    .isInstanceOf(AccountDeletedException.class)
+                    .hasMessageContaining("15/01/2025");
+        }
+
+        @Test
+        @DisplayName("Devrait connecter un utilisateur suspendu (isActive=false) avec token")
+        void shouldLoginSuspendedUserWithToken() {
+            user.setIsActive(false);
+            when(userRepository.findByEmail(loginRequest.getEmail())).thenReturn(Optional.of(user));
+            when(passwordEncoder.matches("password123", "encodedPassword")).thenReturn(true);
+            when(jwtService.generateToken(user)).thenReturn("jwt.token.here");
+
+            AuthResponse result = authService.login(loginRequest);
+
+            assertThat(result).isNotNull();
+            assertThat(result.getToken()).isEqualTo("jwt.token.here");
+            assertThat(result.getIsActive()).isFalse();
         }
     }
 
