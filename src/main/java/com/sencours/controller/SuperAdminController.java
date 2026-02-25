@@ -6,14 +6,20 @@ import com.sencours.entity.User;
 import com.sencours.enums.Role;
 import com.sencours.exception.BadRequestException;
 import com.sencours.repository.UserRepository;
+import com.sencours.service.SuperAdminService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @RestController
@@ -23,6 +29,7 @@ public class SuperAdminController {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final SuperAdminService superAdminService;
 
     @PostMapping("/admins")
     public ResponseEntity<UserResponse> createAdmin(@Valid @RequestBody CreateAdminRequest request) {
@@ -82,6 +89,24 @@ public class SuperAdminController {
 
         instructor = userRepository.save(instructor);
         return ResponseEntity.status(HttpStatus.CREATED).body(mapToResponse(instructor));
+    }
+
+    @DeleteMapping("/reset-database")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    public ResponseEntity<Map<String, String>> resetDatabase(
+            @RequestBody Map<String, String> confirmation,
+            @AuthenticationPrincipal UserDetails userDetails) {
+
+        String confirmText = confirmation.get("confirmation");
+        if (!"RESET".equals(confirmText)) {
+            throw new BadRequestException("Pour confirmer, envoyez {\"confirmation\": \"RESET\"}");
+        }
+
+        superAdminService.resetDatabase(userDetails.getUsername());
+
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "Base de données réinitialisée avec succès. Seul le SuperAdmin a été conservé.");
+        return ResponseEntity.ok(response);
     }
 
     private UserResponse mapToResponse(User user) {
