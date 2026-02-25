@@ -51,6 +51,9 @@ public class SecurityConfig {
                         // Swagger/OpenAPI
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
 
+                        // Utilitaires publics (hash BCrypt)
+                        .requestMatchers("/api/v1/utility/**").permitAll()
+
                         // Lecture publique des cours, sections, leçons et catégories
                         .requestMatchers(HttpMethod.GET, "/api/v1/courses/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/sections/*/lessons/**").permitAll()
