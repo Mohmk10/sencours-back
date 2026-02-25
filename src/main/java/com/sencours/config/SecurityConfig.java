@@ -63,6 +63,10 @@ public class SecurityConfig {
                         // Super Admin - gestion des admins et instructeurs directs
                         .requestMatchers("/api/v1/super-admin/**").hasRole("SUPER_ADMIN")
 
+                        // Admin - permissions granulaires
+                        .requestMatchers(HttpMethod.PATCH, "/api/v1/admin/users/*/toggle-status").hasAnyRole("ADMIN", "SUPER_ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/v1/admin/users/*").hasRole("SUPER_ADMIN")
+
                         // Admin - gestion candidatures et users (ADMIN + SUPER_ADMIN)
                         .requestMatchers("/api/v1/admin/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
 

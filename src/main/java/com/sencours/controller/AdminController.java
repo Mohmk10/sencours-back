@@ -3,6 +3,7 @@ package com.sencours.controller;
 import com.sencours.dto.response.PageResponse;
 import com.sencours.dto.response.UserResponse;
 import com.sencours.enums.Role;
+import com.sencours.service.AdminService;
 import com.sencours.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -13,8 +14,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -24,6 +27,7 @@ import org.springframework.web.bind.annotation.*;
 public class AdminController {
 
     private final UserService userService;
+    private final AdminService adminService;
 
     @GetMapping("/users")
     @Operation(summary = "Lister les utilisateurs avec pagination", description = "Récupère la liste paginée de tous les utilisateurs")
@@ -66,16 +70,33 @@ public class AdminController {
         return ResponseEntity.ok(response);
     }
 
+    @PatchMapping("/users/{id}/toggle-status")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    @Operation(summary = "Suspendre/Réactiver un utilisateur", description = "Toggle le statut is_active. Admin : ETUDIANT et INSTRUCTEUR uniquement. SuperAdmin : tous sauf lui-même.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Statut de l'utilisateur modifié avec succès"),
+            @ApiResponse(responseCode = "403", description = "Action non autorisée"),
+            @ApiResponse(responseCode = "404", description = "Utilisateur non trouvé")
+    })
+    public ResponseEntity<UserResponse> toggleUserStatus(
+            @Parameter(description = "ID de l'utilisateur") @PathVariable Long id,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        UserResponse user = adminService.toggleUserStatus(id, userDetails.getUsername());
+        return ResponseEntity.ok(user);
+    }
+
     @DeleteMapping("/users/{id}")
-    @Operation(summary = "Supprimer un utilisateur", description = "Supprime un utilisateur et toutes ses données associées. Ne peut pas supprimer un SUPER_ADMIN.")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @Operation(summary = "Supprimer un utilisateur", description = "Supprime un utilisateur et toutes ses données associées. Réservé au SUPER_ADMIN.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "204", description = "Utilisateur supprimé avec succès"),
-            @ApiResponse(responseCode = "403", description = "Impossible de supprimer un SUPER_ADMIN"),
+            @ApiResponse(responseCode = "403", description = "Seul le SuperAdmin peut supprimer"),
             @ApiResponse(responseCode = "404", description = "Utilisateur non trouvé")
     })
     public ResponseEntity<Void> deleteUser(
-            @Parameter(description = "ID de l'utilisateur à supprimer") @PathVariable Long id) {
-        userService.delete(id);
+            @Parameter(description = "ID de l'utilisateur à supprimer") @PathVariable Long id,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        adminService.deleteUser(id, userDetails.getUsername());
         return ResponseEntity.noContent().build();
     }
 
