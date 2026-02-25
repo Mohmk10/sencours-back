@@ -30,7 +30,6 @@ public class CourseRequest {
 
     private Status status;
 
-    @NotNull(message = "L'ID de l'instructeur est obligatoire")
     private Long instructorId;
 
     @NotNull(message = "L'ID de la catégorie est obligatoire")

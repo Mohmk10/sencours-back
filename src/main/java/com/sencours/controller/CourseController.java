@@ -3,7 +3,10 @@ package com.sencours.controller;
 import com.sencours.dto.request.CourseRequest;
 import com.sencours.dto.response.CourseResponse;
 import com.sencours.dto.response.PageResponse;
+import com.sencours.entity.User;
 import com.sencours.enums.Status;
+import com.sencours.exception.ResourceNotFoundException;
+import com.sencours.repository.UserRepository;
 import com.sencours.service.CourseService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -19,6 +22,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -30,6 +35,7 @@ import java.util.List;
 public class CourseController {
 
     private final CourseService courseService;
+    private final UserRepository userRepository;
 
     @PostMapping
     @Operation(summary = "Créer un cours", description = "Crée un nouveau cours avec un instructeur et une catégorie")
@@ -40,7 +46,13 @@ public class CourseController {
             @ApiResponse(responseCode = "404", description = "Instructeur ou catégorie non trouvé")
     })
     public ResponseEntity<CourseResponse> create(
-            @Valid @RequestBody CourseRequest request) {
+            @Valid @RequestBody CourseRequest request,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        if (request.getInstructorId() == null) {
+            User currentUser = userRepository.findByEmail(userDetails.getUsername())
+                    .orElseThrow(() -> new ResourceNotFoundException("Utilisateur non trouvé"));
+            request.setInstructorId(currentUser.getId());
+        }
         CourseResponse response = courseService.create(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }

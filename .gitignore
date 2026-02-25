@@ -33,5 +33,5 @@ Thumbs.db
 *.bak
 *.tmp
 
-# Claude Code
+# Config
 .claude/
