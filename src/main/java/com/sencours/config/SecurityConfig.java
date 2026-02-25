@@ -92,6 +92,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/files").hasAnyRole("INSTRUCTEUR", "ADMIN", "SUPER_ADMIN")
 
                         // Gestion des cours - INSTRUCTEUR, ADMIN, SUPER_ADMIN
+                        .requestMatchers(HttpMethod.PATCH, "/api/v1/courses/*/status").hasAnyRole("INSTRUCTEUR", "ADMIN", "SUPER_ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/v1/courses").hasAnyRole("INSTRUCTEUR", "ADMIN", "SUPER_ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/v1/courses/*").hasAnyRole("INSTRUCTEUR", "ADMIN", "SUPER_ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/courses/*").hasAnyRole("INSTRUCTEUR", "ADMIN", "SUPER_ADMIN")

@@ -176,7 +176,7 @@ public class CourseController {
         return ResponseEntity.ok(response);
     }
 
-    @PatchMapping("/{id}/status")
+    @PatchMapping(value = "/{id}/status", consumes = "application/json")
     @Operation(summary = "Changer le statut d'un cours", description = "Change le statut d'un cours (DRAFT, PUBLISHED, ARCHIVED)")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Statut du cours mis à jour avec succès",
