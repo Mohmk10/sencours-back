@@ -48,9 +48,12 @@ public class CourseMapper {
         }
 
         if (entity.getEnrollments() != null) {
-            builder.totalStudents(entity.getEnrollments().size());
+            int count = entity.getEnrollments().size();
+            builder.totalStudents(count);
+            builder.enrollmentCount(count);
         } else {
             builder.totalStudents(0);
+            builder.enrollmentCount(0);
         }
 
         if (entity.getReviews() != null && !entity.getReviews().isEmpty()) {

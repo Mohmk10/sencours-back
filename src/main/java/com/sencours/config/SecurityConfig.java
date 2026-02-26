@@ -62,6 +62,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/sections/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/sections/*/lessons").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/lessons/*").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/lessons/*/content").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/lessons/*/preview").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/categories/**").permitAll()
 
                         // Super Admin - gestion des admins et instructeurs directs

@@ -13,6 +13,7 @@ import com.sencours.exception.LessonNotFoundException;
 import com.sencours.exception.ResourceNotFoundException;
 import com.sencours.exception.SectionNotFoundException;
 import com.sencours.mapper.LessonMapper;
+import com.sencours.repository.EnrollmentRepository;
 import com.sencours.repository.LessonRepository;
 import com.sencours.repository.SectionRepository;
 import com.sencours.repository.UserRepository;
@@ -35,6 +36,7 @@ public class LessonServiceImpl implements LessonService {
     private final LessonRepository lessonRepository;
     private final SectionRepository sectionRepository;
     private final UserRepository userRepository;
+    private final EnrollmentRepository enrollmentRepository;
     private final FileStorageService fileStorageService;
     private final LessonMapper lessonMapper;
 
@@ -196,5 +198,50 @@ public class LessonServiceImpl implements LessonService {
         return lessons.stream()
                 .map(lessonMapper::toResponse)
                 .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public LessonResponse getLessonWithAccessCheck(Long lessonId, String userEmail) {
+        Lesson lesson = lessonRepository.findById(lessonId)
+                .orElseThrow(() -> new LessonNotFoundException(lessonId));
+
+        Course course = lesson.getSection().getCourse();
+
+        // Si la leçon est gratuite, accès autorisé
+        if (lesson.getIsFree()) {
+            return lessonMapper.toResponse(lesson);
+        }
+
+        // Si non connecté, pas d'accès
+        if (userEmail == null) {
+            throw new ForbiddenException("Vous devez être connecté pour accéder à cette leçon");
+        }
+
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("Utilisateur non trouvé"));
+
+        // Vérifier si l'utilisateur est inscrit ou est l'instructeur
+        boolean isInstructor = course.getInstructor().getId().equals(user.getId());
+        boolean isEnrolled = enrollmentRepository.existsByUserIdAndCourseId(user.getId(), course.getId());
+
+        if (!isInstructor && !isEnrolled) {
+            throw new ForbiddenException("Vous devez être inscrit au cours pour accéder à cette leçon");
+        }
+
+        return lessonMapper.toResponse(lesson);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public LessonResponse getPreview(Long lessonId) {
+        Lesson lesson = lessonRepository.findById(lessonId)
+                .orElseThrow(() -> new LessonNotFoundException(lessonId));
+
+        if (!lesson.getIsFree()) {
+            throw new ForbiddenException("Cette leçon n'est pas en aperçu gratuit");
+        }
+
+        return lessonMapper.toResponse(lesson);
     }
 }

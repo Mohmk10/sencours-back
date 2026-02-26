@@ -23,4 +23,8 @@ public interface LessonService {
     void delete(Long id, String userEmail);
 
     List<LessonResponse> reorder(Long sectionId, ReorderRequest request);
+
+    LessonResponse getLessonWithAccessCheck(Long lessonId, String userEmail);
+
+    LessonResponse getPreview(Long lessonId);
 }

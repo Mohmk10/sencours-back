@@ -72,6 +72,36 @@ public class LessonController {
         return ResponseEntity.ok(response);
     }
 
+    @GetMapping("/lessons/{id}/preview")
+    @Operation(summary = "Preview d'une leçon gratuite", description = "Récupère une leçon gratuite sans authentification")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Leçon gratuite récupérée",
+                    content = @Content(schema = @Schema(implementation = LessonResponse.class))),
+            @ApiResponse(responseCode = "403", description = "Leçon non gratuite"),
+            @ApiResponse(responseCode = "404", description = "Leçon non trouvée")
+    })
+    public ResponseEntity<LessonResponse> getPreview(
+            @Parameter(description = "ID de la leçon") @PathVariable Long id) {
+        LessonResponse response = lessonService.getPreview(id);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/lessons/{id}/content")
+    @Operation(summary = "Récupérer le contenu d'une leçon", description = "Récupère une leçon avec vérification d'accès (inscription ou leçon gratuite)")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Contenu de la leçon récupéré",
+                    content = @Content(schema = @Schema(implementation = LessonResponse.class))),
+            @ApiResponse(responseCode = "403", description = "Accès refusé"),
+            @ApiResponse(responseCode = "404", description = "Leçon non trouvée")
+    })
+    public ResponseEntity<LessonResponse> getLessonContent(
+            @Parameter(description = "ID de la leçon") @PathVariable Long id,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        String email = userDetails != null ? userDetails.getUsername() : null;
+        LessonResponse response = lessonService.getLessonWithAccessCheck(id, email);
+        return ResponseEntity.ok(response);
+    }
+
     @PutMapping("/lessons/{id}")
     @Operation(summary = "Modifier une leçon", description = "Met à jour une leçon existante")
     @ApiResponses(value = {

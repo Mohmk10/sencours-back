@@ -42,4 +42,5 @@ public class CourseResponse {
     private Integer totalDuration;
     private Integer totalStudents;
     private Double averageRating;
+    private Integer enrollmentCount;
 }
