@@ -59,7 +59,7 @@ public class SecurityConfig {
 
                         // Lecture publique des cours, sections, leçons et catégories
                         .requestMatchers(HttpMethod.GET, "/api/v1/courses/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/sections/*/lessons/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/sections/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/sections/*/lessons").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/lessons/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/categories/**").permitAll()
@@ -98,13 +98,17 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/courses/*").hasAnyRole("INSTRUCTEUR", "ADMIN", "SUPER_ADMIN")
                         .requestMatchers(HttpMethod.PATCH, "/api/v1/courses/**").hasAnyRole("INSTRUCTEUR", "ADMIN", "SUPER_ADMIN")
 
-                        // Sections et Leçons
-                        .requestMatchers(HttpMethod.POST, "/api/v1/courses/*/sections/**").hasAnyRole("INSTRUCTEUR", "ADMIN", "SUPER_ADMIN")
+                        // Sections
+                        .requestMatchers(HttpMethod.POST, "/api/v1/courses/*/sections").hasAnyRole("INSTRUCTEUR", "ADMIN", "SUPER_ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/v1/courses/*/sections/**").hasAnyRole("INSTRUCTEUR", "ADMIN", "SUPER_ADMIN")
-                        .requestMatchers(HttpMethod.DELETE, "/api/v1/courses/*/sections/**").hasAnyRole("INSTRUCTEUR", "ADMIN", "SUPER_ADMIN")
-                        .requestMatchers(HttpMethod.POST, "/api/v1/sections/*/lessons/**").hasAnyRole("INSTRUCTEUR", "ADMIN", "SUPER_ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/v1/sections/*").hasAnyRole("INSTRUCTEUR", "ADMIN", "SUPER_ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/v1/sections/*").hasAnyRole("INSTRUCTEUR", "ADMIN", "SUPER_ADMIN")
+
+                        // Leçons
+                        .requestMatchers(HttpMethod.POST, "/api/v1/sections/*/lessons").hasAnyRole("INSTRUCTEUR", "ADMIN", "SUPER_ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/v1/sections/*/lessons/**").hasAnyRole("INSTRUCTEUR", "ADMIN", "SUPER_ADMIN")
-                        .requestMatchers(HttpMethod.DELETE, "/api/v1/sections/*/lessons/**").hasAnyRole("INSTRUCTEUR", "ADMIN", "SUPER_ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/v1/lessons/*").hasAnyRole("INSTRUCTEUR", "ADMIN", "SUPER_ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/v1/lessons/*").hasAnyRole("INSTRUCTEUR", "ADMIN", "SUPER_ADMIN")
 
                         // Catégories - ADMIN + SUPER_ADMIN
                         .requestMatchers(HttpMethod.POST, "/api/v1/categories").hasAnyRole("ADMIN", "SUPER_ADMIN")

@@ -195,7 +195,7 @@ class SectionControllerIntegrationTest {
     }
 
     @Nested
-    @DisplayName("GET /api/v1/courses/{courseId}/sections/{sectionId}")
+    @DisplayName("GET /api/v1/sections/{id}")
     class GetSectionByIdTests {
 
         @Test
@@ -203,7 +203,7 @@ class SectionControllerIntegrationTest {
         void shouldReturnSectionById() throws Exception {
             Section section = createSection("Ma Section", 1);
 
-            mockMvc.perform(get(getBaseUrl() + "/" + section.getId()))
+            mockMvc.perform(get("/api/v1/sections/" + section.getId()))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.id").value(section.getId()))
                     .andExpect(jsonPath("$.title").value("Ma Section"))
@@ -213,13 +213,13 @@ class SectionControllerIntegrationTest {
         @Test
         @DisplayName("Devrait retourner 404 si section non trouvée")
         void shouldReturn404WhenSectionNotFound() throws Exception {
-            mockMvc.perform(get(getBaseUrl() + "/999"))
+            mockMvc.perform(get("/api/v1/sections/999"))
                     .andExpect(status().isNotFound());
         }
     }
 
     @Nested
-    @DisplayName("PUT /api/v1/courses/{courseId}/sections/{sectionId}")
+    @DisplayName("PUT /api/v1/sections/{id}")
     class UpdateSectionTests {
 
         @Test
@@ -231,7 +231,7 @@ class SectionControllerIntegrationTest {
                     .title("Nouveau Titre")
                     .build();
 
-            mockMvc.perform(put(getBaseUrl() + "/" + section.getId())
+            mockMvc.perform(put("/api/v1/sections/" + section.getId())
                             .header("Authorization", "Bearer " + instructorToken)
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
@@ -246,7 +246,7 @@ class SectionControllerIntegrationTest {
                     .title("Nouveau Titre")
                     .build();
 
-            mockMvc.perform(put(getBaseUrl() + "/999")
+            mockMvc.perform(put("/api/v1/sections/999")
                             .header("Authorization", "Bearer " + instructorToken)
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
@@ -255,7 +255,7 @@ class SectionControllerIntegrationTest {
     }
 
     @Nested
-    @DisplayName("DELETE /api/v1/courses/{courseId}/sections/{sectionId}")
+    @DisplayName("DELETE /api/v1/sections/{id}")
     class DeleteSectionTests {
 
         @Test
@@ -263,11 +263,11 @@ class SectionControllerIntegrationTest {
         void shouldDeleteSection() throws Exception {
             Section section = createSection("Section à supprimer", 1);
 
-            mockMvc.perform(delete(getBaseUrl() + "/" + section.getId())
+            mockMvc.perform(delete("/api/v1/sections/" + section.getId())
                             .header("Authorization", "Bearer " + instructorToken))
                     .andExpect(status().isNoContent());
 
-            mockMvc.perform(get(getBaseUrl() + "/" + section.getId()))
+            mockMvc.perform(get("/api/v1/sections/" + section.getId()))
                     .andExpect(status().isNotFound());
         }
 
@@ -278,7 +278,7 @@ class SectionControllerIntegrationTest {
             Section section2 = createSection("Section 2", 2);
             Section section3 = createSection("Section 3", 3);
 
-            mockMvc.perform(delete(getBaseUrl() + "/" + section1.getId())
+            mockMvc.perform(delete("/api/v1/sections/" + section1.getId())
                             .header("Authorization", "Bearer " + instructorToken))
                     .andExpect(status().isNoContent());
 

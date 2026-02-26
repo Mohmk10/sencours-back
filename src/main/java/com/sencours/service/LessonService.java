@@ -20,5 +20,7 @@ public interface LessonService {
 
     void delete(Long id);
 
+    void delete(Long id, String userEmail);
+
     List<LessonResponse> reorder(Long sectionId, ReorderRequest request);
 }

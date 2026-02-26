@@ -18,5 +18,7 @@ public interface SectionService {
 
     void delete(Long id);
 
+    void delete(Long id, String userEmail);
+
     List<SectionResponse> reorder(Long courseId, ReorderRequest request);
 }

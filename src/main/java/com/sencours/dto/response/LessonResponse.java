@@ -22,5 +22,6 @@ public class LessonResponse {
     private String videoUrl;
     private String filePath;
     private String quizData;
+    private String thumbnailUrl;
     private Long sectionId;
 }

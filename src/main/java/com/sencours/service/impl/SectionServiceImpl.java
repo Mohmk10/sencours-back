@@ -5,11 +5,15 @@ import com.sencours.dto.request.SectionRequest;
 import com.sencours.dto.response.SectionResponse;
 import com.sencours.entity.Course;
 import com.sencours.entity.Section;
+import com.sencours.entity.User;
+import com.sencours.enums.Role;
+import com.sencours.exception.ForbiddenException;
 import com.sencours.exception.ResourceNotFoundException;
 import com.sencours.exception.SectionNotFoundException;
 import com.sencours.mapper.SectionMapper;
 import com.sencours.repository.CourseRepository;
 import com.sencours.repository.SectionRepository;
+import com.sencours.repository.UserRepository;
 import com.sencours.service.SectionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,6 +31,7 @@ public class SectionServiceImpl implements SectionService {
 
     private final SectionRepository sectionRepository;
     private final CourseRepository courseRepository;
+    private final UserRepository userRepository;
     private final SectionMapper sectionMapper;
 
     @Override
@@ -95,6 +100,40 @@ public class SectionServiceImpl implements SectionService {
                 .orElseThrow(() -> new SectionNotFoundException(id));
 
         Long courseId = section.getCourse().getId();
+        int deletedOrderIndex = section.getOrderIndex();
+
+        sectionRepository.delete(section);
+
+        List<Section> remainingSections = sectionRepository.findByCourseIdOrderByOrderIndexAsc(courseId);
+        for (Section s : remainingSections) {
+            if (s.getOrderIndex() > deletedOrderIndex) {
+                s.setOrderIndex(s.getOrderIndex() - 1);
+                sectionRepository.save(s);
+            }
+        }
+
+        log.info("Section supprimée avec succès. ID: {}", id);
+    }
+
+    @Override
+    public void delete(Long id, String userEmail) {
+        log.info("Suppression de la section avec ID: {} par {}", id, userEmail);
+
+        Section section = sectionRepository.findById(id)
+                .orElseThrow(() -> new SectionNotFoundException(id));
+
+        Course course = section.getCourse();
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("Utilisateur non trouvé"));
+
+        boolean isOwner = course.getInstructor().getId().equals(user.getId());
+        boolean isAdmin = user.getRole() == Role.ADMIN || user.getRole() == Role.SUPER_ADMIN;
+
+        if (!isOwner && !isAdmin) {
+            throw new ForbiddenException("Vous n'avez pas les droits pour supprimer cette section");
+        }
+
+        Long courseId = course.getId();
         int deletedOrderIndex = section.getOrderIndex();
 
         sectionRepository.delete(section);

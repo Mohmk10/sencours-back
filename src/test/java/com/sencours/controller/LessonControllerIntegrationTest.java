@@ -221,7 +221,7 @@ class LessonControllerIntegrationTest {
     }
 
     @Nested
-    @DisplayName("GET /api/v1/sections/{sectionId}/lessons/{lessonId}")
+    @DisplayName("GET /api/v1/lessons/{id}")
     class GetLessonByIdTests {
 
         @Test
@@ -229,7 +229,7 @@ class LessonControllerIntegrationTest {
         void shouldReturnLessonById() throws Exception {
             Lesson lesson = createLesson("Ma Leçon", LessonType.VIDEO, 1);
 
-            mockMvc.perform(get(getBaseUrl() + "/" + lesson.getId()))
+            mockMvc.perform(get("/api/v1/lessons/" + lesson.getId()))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.id").value(lesson.getId()))
                     .andExpect(jsonPath("$.title").value("Ma Leçon"))
@@ -239,13 +239,13 @@ class LessonControllerIntegrationTest {
         @Test
         @DisplayName("Devrait retourner 404 si leçon non trouvée")
         void shouldReturn404WhenLessonNotFound() throws Exception {
-            mockMvc.perform(get(getBaseUrl() + "/999"))
+            mockMvc.perform(get("/api/v1/lessons/999"))
                     .andExpect(status().isNotFound());
         }
     }
 
     @Nested
-    @DisplayName("PUT /api/v1/sections/{sectionId}/lessons/{lessonId}")
+    @DisplayName("PUT /api/v1/lessons/{id}")
     class UpdateLessonTests {
 
         @Test
@@ -261,7 +261,7 @@ class LessonControllerIntegrationTest {
                     .isFree(false)
                     .build();
 
-            mockMvc.perform(put(getBaseUrl() + "/" + lesson.getId())
+            mockMvc.perform(put("/api/v1/lessons/" + lesson.getId())
                             .header("Authorization", "Bearer " + instructorToken)
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
@@ -280,7 +280,7 @@ class LessonControllerIntegrationTest {
                     .content("Contenu")
                     .build();
 
-            mockMvc.perform(put(getBaseUrl() + "/999")
+            mockMvc.perform(put("/api/v1/lessons/999")
                             .header("Authorization", "Bearer " + instructorToken)
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
@@ -289,7 +289,7 @@ class LessonControllerIntegrationTest {
     }
 
     @Nested
-    @DisplayName("DELETE /api/v1/sections/{sectionId}/lessons/{lessonId}")
+    @DisplayName("DELETE /api/v1/lessons/{id}")
     class DeleteLessonTests {
 
         @Test
@@ -297,11 +297,11 @@ class LessonControllerIntegrationTest {
         void shouldDeleteLesson() throws Exception {
             Lesson lesson = createLesson("Leçon à supprimer", LessonType.VIDEO, 1);
 
-            mockMvc.perform(delete(getBaseUrl() + "/" + lesson.getId())
+            mockMvc.perform(delete("/api/v1/lessons/" + lesson.getId())
                             .header("Authorization", "Bearer " + instructorToken))
                     .andExpect(status().isNoContent());
 
-            mockMvc.perform(get(getBaseUrl() + "/" + lesson.getId()))
+            mockMvc.perform(get("/api/v1/lessons/" + lesson.getId()))
                     .andExpect(status().isNotFound());
         }
 
@@ -312,7 +312,7 @@ class LessonControllerIntegrationTest {
             Lesson lesson2 = createLesson("Leçon 2", LessonType.TEXT, 2);
             Lesson lesson3 = createLesson("Leçon 3", LessonType.QUIZ, 3);
 
-            mockMvc.perform(delete(getBaseUrl() + "/" + lesson1.getId())
+            mockMvc.perform(delete("/api/v1/lessons/" + lesson1.getId())
                             .header("Authorization", "Bearer " + instructorToken))
                     .andExpect(status().isNoContent());
 

@@ -54,6 +54,9 @@ public class Lesson {
     @Column(name = "quiz_data", columnDefinition = "TEXT")
     private String quizData;
 
+    @Column(name = "thumbnail_url")
+    private String thumbnailUrl;
+
     @OneToMany(mappedBy = "lesson", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Progress> progresses = new ArrayList<>();
 }

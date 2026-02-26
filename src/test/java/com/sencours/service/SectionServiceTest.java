@@ -10,6 +10,7 @@ import com.sencours.exception.SectionNotFoundException;
 import com.sencours.mapper.SectionMapper;
 import com.sencours.repository.CourseRepository;
 import com.sencours.repository.SectionRepository;
+import com.sencours.repository.UserRepository;
 import com.sencours.service.impl.SectionServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -37,6 +38,9 @@ class SectionServiceTest {
 
     @Mock
     private CourseRepository courseRepository;
+
+    @Mock
+    private UserRepository userRepository;
 
     @Mock
     private SectionMapper sectionMapper;

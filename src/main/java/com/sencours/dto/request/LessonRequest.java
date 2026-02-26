@@ -34,4 +34,6 @@ public class LessonRequest {
     private String videoUrl;
 
     private String quizData;
+
+    private String thumbnailUrl;
 }
