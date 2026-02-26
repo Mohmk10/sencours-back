@@ -20,6 +20,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
+import java.util.Map;
 
 import static org.hamcrest.Matchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -57,6 +58,9 @@ class EnrollmentControllerIntegrationTest {
     private CategoryRepository categoryRepository;
 
     @Autowired
+    private ReviewRepository reviewRepository;
+
+    @Autowired
     private PasswordEncoder passwordEncoder;
 
     @Autowired
@@ -67,14 +71,13 @@ class EnrollmentControllerIntegrationTest {
     private User student;
     private User instructor;
     private Course course;
-    private Section section;
-    private Lesson lesson1;
-    private Lesson lesson2;
+    private Course freeCourse;
     private String studentToken;
     private String instructorToken;
 
     @BeforeEach
     void setUp() {
+        reviewRepository.deleteAll();
         progressRepository.deleteAll();
         enrollmentRepository.deleteAll();
         lessonRepository.deleteAll();
@@ -86,130 +89,144 @@ class EnrollmentControllerIntegrationTest {
         instructor = createInstructor();
         student = createStudent();
         Category category = createCategory();
-        course = createCourse(instructor, category);
-        section = createSection(course);
-        lesson1 = createLesson(section, "Introduction", 1);
-        lesson2 = createLesson(section, "Chapitre 1", 2);
+        course = createCourse(instructor, category, new BigDecimal("25000"));
+        freeCourse = createCourse(instructor, category, BigDecimal.ZERO);
+        freeCourse.setTitle("Cours gratuit");
+        courseRepository.save(freeCourse);
+
+        createSection(course);
+        createSection(freeCourse);
 
         studentToken = jwtService.generateToken(student);
         instructorToken = jwtService.generateToken(instructor);
     }
 
     @Nested
-    @DisplayName("POST /api/v1/enrollments")
-    class EnrollTests {
+    @DisplayName("POST /api/v1/enrollments/courses/{courseId}/pay")
+    class InitiatePaymentTests {
 
         @Test
-        @DisplayName("Devrait inscrire un étudiant avec succès - 201")
-        void shouldEnrollStudentSuccessfully() throws Exception {
+        @DisplayName("Devrait initier un paiement avec succès - 200")
+        void shouldInitiatePaymentSuccessfully() throws Exception {
             EnrollmentRequest request = EnrollmentRequest.builder()
-                    .courseId(course.getId())
+                    .paymentMethod("ORANGE_MONEY")
                     .build();
 
-            mockMvc.perform(post(BASE_URL)
+            mockMvc.perform(post(BASE_URL + "/courses/" + course.getId() + "/pay")
                             .header("Authorization", "Bearer " + studentToken)
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
-                    .andExpect(status().isCreated())
-                    .andExpect(jsonPath("$.id").isNotEmpty())
-                    .andExpect(jsonPath("$.userId").value(student.getId()))
-                    .andExpect(jsonPath("$.courseId").value(course.getId()))
-                    .andExpect(jsonPath("$.courseTitle").value(course.getTitle()))
-                    .andExpect(jsonPath("$.progressPercentage").value(0.0));
-        }
-
-        @Test
-        @DisplayName("Devrait créer des Progress pour chaque leçon - 201")
-        void shouldCreateProgressForEachLesson() throws Exception {
-            EnrollmentRequest request = EnrollmentRequest.builder()
-                    .courseId(course.getId())
-                    .build();
-
-            String response = mockMvc.perform(post(BASE_URL)
-                            .header("Authorization", "Bearer " + studentToken)
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(request)))
-                    .andExpect(status().isCreated())
-                    .andReturn().getResponse().getContentAsString();
-
-            Long enrollmentId = objectMapper.readTree(response).get("id").asLong();
-
-            mockMvc.perform(get(BASE_URL + "/" + enrollmentId + "/lessons")
-                            .header("Authorization", "Bearer " + studentToken))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$", hasSize(2)));
+                    .andExpect(jsonPath("$.reference").isNotEmpty())
+                    .andExpect(jsonPath("$.status").value("SUCCESS"))
+                    .andExpect(jsonPath("$.amount").value(25000));
         }
 
         @Test
-        @DisplayName("Devrait retourner 409 si déjà inscrit")
-        void shouldReturn409WhenAlreadyEnrolled() throws Exception {
+        @DisplayName("Devrait retourner 400 si déjà inscrit")
+        void shouldReturn400WhenAlreadyEnrolled() throws Exception {
             createEnrollment(student, course);
 
             EnrollmentRequest request = EnrollmentRequest.builder()
-                    .courseId(course.getId())
+                    .paymentMethod("WAVE")
                     .build();
 
-            mockMvc.perform(post(BASE_URL)
+            mockMvc.perform(post(BASE_URL + "/courses/" + course.getId() + "/pay")
                             .header("Authorization", "Bearer " + studentToken)
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
-                    .andExpect(status().isConflict())
+                    .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.message").value(containsString("déjà inscrit")));
-        }
-
-        @Test
-        @DisplayName("Devrait retourner 404 si cours non trouvé")
-        void shouldReturn404WhenCourseNotFound() throws Exception {
-            EnrollmentRequest request = EnrollmentRequest.builder()
-                    .courseId(999L)
-                    .build();
-
-            mockMvc.perform(post(BASE_URL)
-                            .header("Authorization", "Bearer " + studentToken)
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(request)))
-                    .andExpect(status().isNotFound())
-                    .andExpect(jsonPath("$.message").value(containsString("Cours")));
         }
 
         @Test
         @DisplayName("Devrait retourner 401 sans authentification")
         void shouldReturn401WithoutAuth() throws Exception {
             EnrollmentRequest request = EnrollmentRequest.builder()
-                    .courseId(course.getId())
+                    .paymentMethod("ORANGE_MONEY")
                     .build();
 
-            mockMvc.perform(post(BASE_URL)
+            mockMvc.perform(post(BASE_URL + "/courses/" + course.getId() + "/pay")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
                     .andExpect(status().isUnauthorized());
         }
+    }
+
+    @Nested
+    @DisplayName("POST /api/v1/enrollments/courses/{courseId}/free")
+    class EnrollFreeTests {
 
         @Test
-        @DisplayName("Devrait retourner erreur si INSTRUCTEUR tente de s'inscrire")
-        void shouldReturnErrorWhenInstructorTriesToEnroll() throws Exception {
-            EnrollmentRequest request = EnrollmentRequest.builder()
-                    .courseId(course.getId())
-                    .build();
+        @DisplayName("Devrait inscrire gratuitement avec succès - 201")
+        void shouldEnrollFreeSuccessfully() throws Exception {
+            mockMvc.perform(post(BASE_URL + "/courses/" + freeCourse.getId() + "/free")
+                            .header("Authorization", "Bearer " + studentToken)
+                            .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.id").isNotEmpty())
+                    .andExpect(jsonPath("$.courseId").value(freeCourse.getId()))
+                    .andExpect(jsonPath("$.userId").value(student.getId()));
+        }
 
-            mockMvc.perform(post(BASE_URL)
-                            .header("Authorization", "Bearer " + instructorToken)
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(request)))
-                    .andExpect(status().isInternalServerError());
+        @Test
+        @DisplayName("Devrait retourner 400 si cours pas gratuit")
+        void shouldReturn400WhenCourseNotFree() throws Exception {
+            mockMvc.perform(post(BASE_URL + "/courses/" + course.getId() + "/free")
+                            .header("Authorization", "Bearer " + studentToken)
+                            .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.message").value(containsString("pas gratuit")));
+        }
+
+        @Test
+        @DisplayName("Devrait retourner 400 si déjà inscrit")
+        void shouldReturn400WhenAlreadyEnrolled() throws Exception {
+            createEnrollment(student, freeCourse);
+
+            mockMvc.perform(post(BASE_URL + "/courses/" + freeCourse.getId() + "/free")
+                            .header("Authorization", "Bearer " + studentToken)
+                            .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.message").value(containsString("déjà inscrit")));
         }
     }
 
     @Nested
-    @DisplayName("GET /api/v1/enrollments/me")
+    @DisplayName("GET /api/v1/enrollments/courses/{courseId}/check")
+    class CheckEnrollmentTests {
+
+        @Test
+        @DisplayName("Devrait retourner true si inscrit")
+        void shouldReturnTrueWhenEnrolled() throws Exception {
+            createEnrollment(student, course);
+
+            mockMvc.perform(get(BASE_URL + "/courses/" + course.getId() + "/check")
+                            .header("Authorization", "Bearer " + studentToken))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.enrolled").value(true));
+        }
+
+        @Test
+        @DisplayName("Devrait retourner false si pas inscrit")
+        void shouldReturnFalseWhenNotEnrolled() throws Exception {
+            mockMvc.perform(get(BASE_URL + "/courses/" + course.getId() + "/check")
+                            .header("Authorization", "Bearer " + studentToken))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.enrolled").value(false));
+        }
+    }
+
+    @Nested
+    @DisplayName("GET /api/v1/enrollments/my-enrollments")
     class GetMyEnrollmentsTests {
 
         @Test
-        @DisplayName("Devrait retourner les inscriptions de l'utilisateur connecté - 200")
+        @DisplayName("Devrait retourner les inscriptions de l'utilisateur - 200")
         void shouldReturnUserEnrollments() throws Exception {
             createEnrollment(student, course);
 
-            mockMvc.perform(get(BASE_URL + "/me")
+            mockMvc.perform(get(BASE_URL + "/my-enrollments")
                             .header("Authorization", "Bearer " + studentToken))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$", hasSize(1)))
@@ -219,7 +236,7 @@ class EnrollmentControllerIntegrationTest {
         @Test
         @DisplayName("Devrait retourner liste vide si aucune inscription - 200")
         void shouldReturnEmptyListWhenNoEnrollments() throws Exception {
-            mockMvc.perform(get(BASE_URL + "/me")
+            mockMvc.perform(get(BASE_URL + "/my-enrollments")
                             .header("Authorization", "Bearer " + studentToken))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$", hasSize(0)));
@@ -228,129 +245,33 @@ class EnrollmentControllerIntegrationTest {
         @Test
         @DisplayName("Devrait retourner 401 sans authentification")
         void shouldReturn401WithoutAuth() throws Exception {
-            mockMvc.perform(get(BASE_URL + "/me"))
+            mockMvc.perform(get(BASE_URL + "/my-enrollments"))
                     .andExpect(status().isUnauthorized());
         }
     }
 
     @Nested
-    @DisplayName("GET /api/v1/enrollments/{enrollmentId}")
-    class GetEnrollmentDetailTests {
+    @DisplayName("GET /api/v1/enrollments/courses/{courseId}")
+    class GetEnrollmentTests {
 
         @Test
-        @DisplayName("Devrait retourner le détail avec progression - 200")
-        void shouldReturnDetailWithProgress() throws Exception {
-            Enrollment enrollment = createEnrollment(student, course);
+        @DisplayName("Devrait retourner le détail de l'inscription - 200")
+        void shouldReturnEnrollmentDetail() throws Exception {
+            createEnrollment(student, course);
 
-            mockMvc.perform(get(BASE_URL + "/" + enrollment.getId())
+            mockMvc.perform(get(BASE_URL + "/courses/" + course.getId())
                             .header("Authorization", "Bearer " + studentToken))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.id").value(enrollment.getId()))
-                    .andExpect(jsonPath("$.progresses", hasSize(2)))
-                    .andExpect(jsonPath("$.progressPercentage").value(0.0));
+                    .andExpect(jsonPath("$.courseId").value(course.getId()))
+                    .andExpect(jsonPath("$.userId").value(student.getId()));
         }
 
         @Test
         @DisplayName("Devrait retourner 404 si inscription non trouvée")
         void shouldReturn404WhenEnrollmentNotFound() throws Exception {
-            mockMvc.perform(get(BASE_URL + "/999")
+            mockMvc.perform(get(BASE_URL + "/courses/" + course.getId())
                             .header("Authorization", "Bearer " + studentToken))
                     .andExpect(status().isNotFound());
-        }
-    }
-
-    @Nested
-    @DisplayName("GET /api/v1/enrollments/{enrollmentId}/progress")
-    class GetProgressSummaryTests {
-
-        @Test
-        @DisplayName("Devrait retourner 0% si aucune leçon complétée")
-        void shouldReturnZeroPercent() throws Exception {
-            Enrollment enrollment = createEnrollment(student, course);
-
-            mockMvc.perform(get(BASE_URL + "/" + enrollment.getId() + "/progress")
-                            .header("Authorization", "Bearer " + studentToken))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.totalLessons").value(2))
-                    .andExpect(jsonPath("$.completedLessons").value(0))
-                    .andExpect(jsonPath("$.percentage").value(0.0));
-        }
-
-        @Test
-        @DisplayName("Devrait retourner 50% si 1/2 leçons complétées")
-        void shouldReturn50Percent() throws Exception {
-            Enrollment enrollment = createEnrollment(student, course);
-
-            Progress progress = progressRepository.findByEnrollmentIdAndLessonId(enrollment.getId(), lesson1.getId())
-                    .orElseThrow();
-            progress.setCompleted(true);
-            progressRepository.save(progress);
-
-            mockMvc.perform(get(BASE_URL + "/" + enrollment.getId() + "/progress")
-                            .header("Authorization", "Bearer " + studentToken))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.totalLessons").value(2))
-                    .andExpect(jsonPath("$.completedLessons").value(1))
-                    .andExpect(jsonPath("$.percentage").value(50.0));
-        }
-
-        @Test
-        @DisplayName("Devrait retourner 100% si toutes les leçons complétées")
-        void shouldReturn100Percent() throws Exception {
-            Enrollment enrollment = createEnrollment(student, course);
-
-            progressRepository.findByEnrollmentId(enrollment.getId()).forEach(p -> {
-                p.setCompleted(true);
-                progressRepository.save(p);
-            });
-
-            mockMvc.perform(get(BASE_URL + "/" + enrollment.getId() + "/progress")
-                            .header("Authorization", "Bearer " + studentToken))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.totalLessons").value(2))
-                    .andExpect(jsonPath("$.completedLessons").value(2))
-                    .andExpect(jsonPath("$.percentage").value(100.0));
-        }
-    }
-
-    @Nested
-    @DisplayName("DELETE /api/v1/enrollments/{enrollmentId}")
-    class UnenrollTests {
-
-        @Test
-        @DisplayName("Devrait se désinscrire avec succès - 204")
-        void shouldUnenrollSuccessfully() throws Exception {
-            Enrollment enrollment = createEnrollment(student, course);
-
-            mockMvc.perform(delete(BASE_URL + "/" + enrollment.getId())
-                            .header("Authorization", "Bearer " + studentToken))
-                    .andExpect(status().isNoContent());
-
-            mockMvc.perform(get(BASE_URL + "/" + enrollment.getId())
-                            .header("Authorization", "Bearer " + studentToken))
-                    .andExpect(status().isNotFound());
-        }
-
-        @Test
-        @DisplayName("Devrait retourner 403 si pas le propriétaire")
-        void shouldReturn403WhenNotOwner() throws Exception {
-            Enrollment enrollment = createEnrollment(student, course);
-
-            User otherStudent = createStudent("other@sencours.sn");
-            String otherToken = jwtService.generateToken(otherStudent);
-
-            mockMvc.perform(delete(BASE_URL + "/" + enrollment.getId())
-                            .header("Authorization", "Bearer " + otherToken))
-                    .andExpect(status().isForbidden());
-        }
-
-        @Test
-        @DisplayName("Devrait retourner 401 sans authentification")
-        void shouldReturn401WithoutAuth() throws Exception {
-            Enrollment enrollment = createEnrollment(student, course);
-
-            mockMvc.perform(delete(BASE_URL + "/" + enrollment.getId()))
-                    .andExpect(status().isUnauthorized());
         }
     }
 
@@ -387,11 +308,11 @@ class EnrollmentControllerIntegrationTest {
         return categoryRepository.save(cat);
     }
 
-    private Course createCourse(User instructor, Category category) {
+    private Course createCourse(User instructor, Category category, BigDecimal price) {
         Course c = new Course();
         c.setTitle("Java pour débutants");
         c.setDescription("Apprenez Java");
-        c.setPrice(new BigDecimal("25000"));
+        c.setPrice(price);
         c.setStatus(Status.PUBLISHED);
         c.setInstructor(instructor);
         c.setCategory(category);
@@ -406,32 +327,10 @@ class EnrollmentControllerIntegrationTest {
         return sectionRepository.save(s);
     }
 
-    private Lesson createLesson(Section section, String title, int orderIndex) {
-        Lesson l = new Lesson();
-        l.setTitle(title);
-        l.setType(LessonType.VIDEO);
-        l.setContent("https://video.url/" + title.toLowerCase());
-        l.setDuration(10);
-        l.setOrderIndex(orderIndex);
-        l.setIsFree(false);
-        l.setSection(section);
-        return lessonRepository.save(l);
-    }
-
     private Enrollment createEnrollment(User student, Course course) {
         Enrollment enrollment = new Enrollment();
-        enrollment.setStudent(student);
+        enrollment.setUser(student);
         enrollment.setCourse(course);
-        enrollment = enrollmentRepository.save(enrollment);
-
-        for (Lesson lesson : lessonRepository.findByCourseIdOrderByOrderIndex(course.getId())) {
-            Progress progress = new Progress();
-            progress.setEnrollment(enrollment);
-            progress.setLesson(lesson);
-            progress.setCompleted(false);
-            progressRepository.save(progress);
-        }
-
-        return enrollment;
+        return enrollmentRepository.save(enrollment);
     }
 }

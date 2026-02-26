@@ -9,8 +9,9 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class EnrollmentRequest {
+public class ProgressRequest {
 
-    private String paymentMethod;
-    private String paymentPhone;
+    private Boolean completed;
+    private Integer watchTimeSeconds;
+    private Integer lastPositionSeconds;
 }

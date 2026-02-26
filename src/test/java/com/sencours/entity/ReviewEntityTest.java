@@ -60,7 +60,7 @@ class ReviewEntityTest {
         course = courseRepository.save(course);
 
         review = new Review();
-        review.setStudent(student);
+        review.setUser(student);
         review.setCourse(course);
         review.setRating(5);
         review.setComment("Excellent cours!");
@@ -73,16 +73,15 @@ class ReviewEntityTest {
 
         assertThat(savedReview.getId()).isNotNull();
         assertThat(savedReview.getCreatedAt()).isNotNull();
-        assertThat(savedReview.getUpdatedAt()).isNotNull();
     }
 
     @Test
-    @DisplayName("Should enforce unique student-course constraint")
-    void shouldEnforceUniqueStudentCourseConstraint() {
+    @DisplayName("Should enforce unique user-course constraint")
+    void shouldEnforceUniqueUserCourseConstraint() {
         reviewRepository.save(review);
 
         Review duplicateReview = new Review();
-        duplicateReview.setStudent(student);
+        duplicateReview.setUser(student);
         duplicateReview.setCourse(course);
         duplicateReview.setRating(4);
 
@@ -96,20 +95,10 @@ class ReviewEntityTest {
     void shouldFindReviewsByCourse() {
         reviewRepository.save(review);
 
-        var reviews = reviewRepository.findByCourseId(course.getId());
+        var reviews = reviewRepository.findByCourseIdOrderByCreatedAtDesc(course.getId());
 
         assertThat(reviews).hasSize(1);
         assertThat(reviews.get(0).getRating()).isEqualTo(5);
-    }
-
-    @Test
-    @DisplayName("Should find reviews by student")
-    void shouldFindReviewsByStudent() {
-        reviewRepository.save(review);
-
-        var reviews = reviewRepository.findByStudentId(student.getId());
-
-        assertThat(reviews).hasSize(1);
     }
 
     @Test
@@ -125,7 +114,7 @@ class ReviewEntityTest {
         student2 = userRepository.save(student2);
 
         Review review2 = new Review();
-        review2.setStudent(student2);
+        review2.setUser(student2);
         review2.setCourse(course);
         review2.setRating(3);
         reviewRepository.save(review2);
@@ -140,17 +129,17 @@ class ReviewEntityTest {
     void shouldCountReviewsByCourse() {
         reviewRepository.save(review);
 
-        int count = reviewRepository.countByCourseId(course.getId());
+        Long count = reviewRepository.countByCourseId(course.getId());
 
-        assertThat(count).isEqualTo(1);
+        assertThat(count).isEqualTo(1L);
     }
 
     @Test
-    @DisplayName("Should find review by student and course")
-    void shouldFindReviewByStudentAndCourse() {
+    @DisplayName("Should find review by user and course")
+    void shouldFindReviewByUserAndCourse() {
         reviewRepository.save(review);
 
-        var foundReview = reviewRepository.findByStudentIdAndCourseId(
+        var foundReview = reviewRepository.findByUserIdAndCourseId(
                 student.getId(), course.getId());
 
         assertThat(foundReview).isPresent();
@@ -162,9 +151,9 @@ class ReviewEntityTest {
     void shouldCheckIfReviewExists() {
         reviewRepository.save(review);
 
-        assertThat(reviewRepository.existsByStudentIdAndCourseId(
+        assertThat(reviewRepository.existsByUserIdAndCourseId(
                 student.getId(), course.getId())).isTrue();
-        assertThat(reviewRepository.existsByStudentIdAndCourseId(
+        assertThat(reviewRepository.existsByUserIdAndCourseId(
                 student.getId(), 999L)).isFalse();
     }
 }

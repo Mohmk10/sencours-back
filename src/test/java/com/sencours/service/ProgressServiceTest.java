@@ -1,14 +1,13 @@
 package com.sencours.service;
 
+import com.sencours.dto.request.ProgressRequest;
 import com.sencours.dto.response.ProgressResponse;
 import com.sencours.entity.*;
 import com.sencours.enums.LessonType;
 import com.sencours.enums.Role;
-import com.sencours.exception.EnrollmentNotFoundException;
-import com.sencours.exception.ProgressNotFoundException;
-import com.sencours.mapper.ProgressMapper;
-import com.sencours.repository.EnrollmentRepository;
-import com.sencours.repository.ProgressRepository;
+import com.sencours.exception.BadRequestException;
+import com.sencours.exception.ResourceNotFoundException;
+import com.sencours.repository.*;
 import com.sencours.service.impl.ProgressServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -19,7 +18,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -35,38 +33,42 @@ class ProgressServiceTest {
     private ProgressRepository progressRepository;
 
     @Mock
+    private LessonRepository lessonRepository;
+
+    @Mock
+    private UserRepository userRepository;
+
+    @Mock
     private EnrollmentRepository enrollmentRepository;
 
     @Mock
-    private ProgressMapper progressMapper;
+    private EnrollmentService enrollmentService;
 
     @InjectMocks
     private ProgressServiceImpl progressService;
 
-    private Enrollment enrollment;
+    private User student;
+    private Course course;
+    private Section section;
     private Lesson lesson;
     private Progress progress;
-    private ProgressResponse progressResponse;
 
     @BeforeEach
     void setUp() {
-        User student = new User();
-        student.setId(1L);
-        student.setFirstName("Mamadou");
-        student.setLastName("Diallo");
-        student.setRole(Role.ETUDIANT);
+        student = User.builder()
+                .id(1L).firstName("Mamadou").lastName("Diallo")
+                .email("mamadou@sencours.sn").role(Role.ETUDIANT).build();
 
-        Course course = new Course();
+        User instructor = User.builder()
+                .id(2L).firstName("Prof").lastName("Diop")
+                .email("prof@sencours.sn").role(Role.INSTRUCTEUR).build();
+
+        course = new Course();
         course.setId(1L);
         course.setTitle("Java pour débutants");
+        course.setInstructor(instructor);
 
-        enrollment = new Enrollment();
-        enrollment.setId(1L);
-        enrollment.setStudent(student);
-        enrollment.setCourse(course);
-        enrollment.setEnrolledAt(LocalDateTime.now());
-
-        Section section = new Section();
+        section = new Section();
         section.setId(1L);
         section.setTitle("Introduction");
         section.setCourse(course);
@@ -76,160 +78,114 @@ class ProgressServiceTest {
         lesson.setTitle("Bienvenue");
         lesson.setType(LessonType.VIDEO);
         lesson.setOrderIndex(1);
+        lesson.setIsFree(false);
         lesson.setSection(section);
 
-        progress = new Progress();
-        progress.setId(1L);
-        progress.setEnrollment(enrollment);
-        progress.setLesson(lesson);
-        progress.setCompleted(false);
-        progress.setCompletedAt(null);
-
-        progressResponse = ProgressResponse.builder()
+        progress = Progress.builder()
                 .id(1L)
-                .lessonId(1L)
-                .lessonTitle("Bienvenue")
-                .lessonOrderIndex(1)
+                .user(student)
+                .lesson(lesson)
                 .completed(false)
-                .completedAt(null)
+                .watchTimeSeconds(0)
+                .lastPositionSeconds(0)
                 .build();
     }
 
     @Nested
-    @DisplayName("Tests pour markLessonCompleted()")
-    class MarkLessonCompletedTests {
+    @DisplayName("Tests pour updateProgress()")
+    class UpdateProgressTests {
 
         @Test
-        @DisplayName("Devrait marquer une leçon comme complétée")
-        void shouldMarkLessonAsCompleted() {
-            when(progressRepository.findByEnrollmentIdAndLessonId(1L, 1L)).thenReturn(Optional.of(progress));
+        @DisplayName("Devrait mettre à jour la progression avec succès")
+        void shouldUpdateProgressSuccessfully() {
+            when(userRepository.findByEmail("mamadou@sencours.sn")).thenReturn(Optional.of(student));
+            when(lessonRepository.findById(1L)).thenReturn(Optional.of(lesson));
+            when(enrollmentRepository.existsByUserIdAndCourseId(1L, 1L)).thenReturn(true);
+            when(progressRepository.findByUserIdAndLessonId(1L, 1L)).thenReturn(Optional.of(progress));
             when(progressRepository.save(any(Progress.class))).thenReturn(progress);
-            when(progressRepository.countByEnrollmentId(1L)).thenReturn(5);
-            when(progressRepository.countByEnrollmentIdAndCompletedTrue(1L)).thenReturn(1);
-            when(progressMapper.toResponse(any(Progress.class))).thenReturn(progressResponse);
 
-            ProgressResponse result = progressService.markLessonCompleted(1L, 1L);
+            ProgressRequest request = new ProgressRequest();
+            request.setWatchTimeSeconds(120);
+            request.setLastPositionSeconds(100);
+
+            ProgressResponse result = progressService.updateProgress(1L, request, "mamadou@sencours.sn");
+
+            assertThat(result).isNotNull();
+            assertThat(result.getLessonId()).isEqualTo(1L);
+            verify(progressRepository).save(any(Progress.class));
+        }
+
+        @Test
+        @DisplayName("Devrait créer la progression si elle n'existe pas")
+        void shouldCreateProgressWhenNotExists() {
+            when(userRepository.findByEmail("mamadou@sencours.sn")).thenReturn(Optional.of(student));
+            when(lessonRepository.findById(1L)).thenReturn(Optional.of(lesson));
+            when(enrollmentRepository.existsByUserIdAndCourseId(1L, 1L)).thenReturn(true);
+            when(progressRepository.findByUserIdAndLessonId(1L, 1L)).thenReturn(Optional.empty());
+            when(progressRepository.save(any(Progress.class))).thenReturn(progress);
+
+            ProgressRequest request = new ProgressRequest();
+            request.setCompleted(true);
+
+            ProgressResponse result = progressService.updateProgress(1L, request, "mamadou@sencours.sn");
 
             assertThat(result).isNotNull();
             verify(progressRepository).save(any(Progress.class));
         }
 
         @Test
-        @DisplayName("Devrait être idempotent si déjà complétée")
-        void shouldBeIdempotentWhenAlreadyCompleted() {
-            progress.setCompleted(true);
-            progress.setCompletedAt(LocalDateTime.now());
+        @DisplayName("Devrait lever exception si non inscrit et leçon payante")
+        void shouldThrowExceptionWhenNotEnrolledAndLessonNotFree() {
+            when(userRepository.findByEmail("mamadou@sencours.sn")).thenReturn(Optional.of(student));
+            when(lessonRepository.findById(1L)).thenReturn(Optional.of(lesson));
+            when(enrollmentRepository.existsByUserIdAndCourseId(1L, 1L)).thenReturn(false);
 
-            when(progressRepository.findByEnrollmentIdAndLessonId(1L, 1L)).thenReturn(Optional.of(progress));
-            when(progressMapper.toResponse(progress)).thenReturn(progressResponse);
+            ProgressRequest request = new ProgressRequest();
 
-            ProgressResponse result = progressService.markLessonCompleted(1L, 1L);
+            assertThatThrownBy(() -> progressService.updateProgress(1L, request, "mamadou@sencours.sn"))
+                    .isInstanceOf(BadRequestException.class)
+                    .hasMessageContaining("inscrit");
+        }
+
+        @Test
+        @DisplayName("Devrait permettre l'accès aux leçons gratuites sans inscription")
+        void shouldAllowFreeLesson() {
+            lesson.setIsFree(true);
+            when(userRepository.findByEmail("mamadou@sencours.sn")).thenReturn(Optional.of(student));
+            when(lessonRepository.findById(1L)).thenReturn(Optional.of(lesson));
+            when(progressRepository.findByUserIdAndLessonId(1L, 1L)).thenReturn(Optional.of(progress));
+            when(progressRepository.save(any(Progress.class))).thenReturn(progress);
+            when(enrollmentRepository.existsByUserIdAndCourseId(1L, 1L)).thenReturn(false);
+
+            ProgressRequest request = new ProgressRequest();
+            request.setWatchTimeSeconds(60);
+
+            ProgressResponse result = progressService.updateProgress(1L, request, "mamadou@sencours.sn");
 
             assertThat(result).isNotNull();
-            verify(progressRepository, never()).save(any(Progress.class));
         }
 
         @Test
-        @DisplayName("Devrait lever exception si progression non trouvée")
-        void shouldThrowExceptionWhenProgressNotFound() {
-            when(progressRepository.findByEnrollmentIdAndLessonId(1L, 999L)).thenReturn(Optional.empty());
+        @DisplayName("Devrait lever exception si utilisateur non trouvé")
+        void shouldThrowExceptionWhenUserNotFound() {
+            when(userRepository.findByEmail("unknown@sencours.sn")).thenReturn(Optional.empty());
 
-            assertThatThrownBy(() -> progressService.markLessonCompleted(1L, 999L))
-                    .isInstanceOf(ProgressNotFoundException.class);
+            ProgressRequest request = new ProgressRequest();
+
+            assertThatThrownBy(() -> progressService.updateProgress(1L, request, "unknown@sencours.sn"))
+                    .isInstanceOf(ResourceNotFoundException.class);
         }
 
         @Test
-        @DisplayName("Devrait marquer le cours comme complété si 100%")
-        void shouldMarkCourseAsCompletedWhen100Percent() {
-            when(progressRepository.findByEnrollmentIdAndLessonId(1L, 1L)).thenReturn(Optional.of(progress));
-            when(progressRepository.save(any(Progress.class))).thenReturn(progress);
-            when(progressRepository.countByEnrollmentId(1L)).thenReturn(1);
-            when(progressRepository.countByEnrollmentIdAndCompletedTrue(1L)).thenReturn(1);
-            when(enrollmentRepository.findById(1L)).thenReturn(Optional.of(enrollment));
-            when(enrollmentRepository.save(any(Enrollment.class))).thenReturn(enrollment);
-            when(progressMapper.toResponse(any(Progress.class))).thenReturn(progressResponse);
+        @DisplayName("Devrait lever exception si leçon non trouvée")
+        void shouldThrowExceptionWhenLessonNotFound() {
+            when(userRepository.findByEmail("mamadou@sencours.sn")).thenReturn(Optional.of(student));
+            when(lessonRepository.findById(999L)).thenReturn(Optional.empty());
 
-            progressService.markLessonCompleted(1L, 1L);
+            ProgressRequest request = new ProgressRequest();
 
-            verify(enrollmentRepository).save(any(Enrollment.class));
-        }
-    }
-
-    @Nested
-    @DisplayName("Tests pour markLessonIncomplete()")
-    class MarkLessonIncompleteTests {
-
-        @Test
-        @DisplayName("Devrait marquer une leçon comme non complétée")
-        void shouldMarkLessonAsIncomplete() {
-            progress.setCompleted(true);
-            progress.setCompletedAt(LocalDateTime.now());
-
-            when(progressRepository.findByEnrollmentIdAndLessonId(1L, 1L)).thenReturn(Optional.of(progress));
-            when(progressRepository.save(any(Progress.class))).thenReturn(progress);
-            when(progressMapper.toResponse(any(Progress.class))).thenReturn(progressResponse);
-
-            ProgressResponse result = progressService.markLessonIncomplete(1L, 1L);
-
-            assertThat(result).isNotNull();
-            verify(progressRepository).save(any(Progress.class));
-        }
-
-        @Test
-        @DisplayName("Devrait être idempotent si déjà non complétée")
-        void shouldBeIdempotentWhenAlreadyIncomplete() {
-            progress.setCompleted(false);
-
-            when(progressRepository.findByEnrollmentIdAndLessonId(1L, 1L)).thenReturn(Optional.of(progress));
-            when(progressMapper.toResponse(progress)).thenReturn(progressResponse);
-
-            ProgressResponse result = progressService.markLessonIncomplete(1L, 1L);
-
-            assertThat(result).isNotNull();
-            verify(progressRepository, never()).save(any(Progress.class));
-        }
-
-        @Test
-        @DisplayName("Devrait réinitialiser completedAt du cours si marqué incomplet")
-        void shouldResetCourseCompletionWhenMarkedIncomplete() {
-            progress.setCompleted(true);
-            progress.setCompletedAt(LocalDateTime.now());
-            enrollment.setCompletedAt(LocalDateTime.now());
-
-            when(progressRepository.findByEnrollmentIdAndLessonId(1L, 1L)).thenReturn(Optional.of(progress));
-            when(progressRepository.save(any(Progress.class))).thenReturn(progress);
-            when(enrollmentRepository.save(any(Enrollment.class))).thenReturn(enrollment);
-            when(progressMapper.toResponse(any(Progress.class))).thenReturn(progressResponse);
-
-            progressService.markLessonIncomplete(1L, 1L);
-
-            verify(enrollmentRepository).save(any(Enrollment.class));
-        }
-    }
-
-    @Nested
-    @DisplayName("Tests pour getProgressByEnrollment()")
-    class GetProgressByEnrollmentTests {
-
-        @Test
-        @DisplayName("Devrait retourner la liste des progressions")
-        void shouldReturnProgressList() {
-            when(enrollmentRepository.existsById(1L)).thenReturn(true);
-            when(progressRepository.findByEnrollmentId(1L)).thenReturn(List.of(progress));
-            when(progressMapper.toResponse(progress)).thenReturn(progressResponse);
-
-            List<ProgressResponse> result = progressService.getProgressByEnrollment(1L);
-
-            assertThat(result).hasSize(1);
-        }
-
-        @Test
-        @DisplayName("Devrait lever exception si inscription non trouvée")
-        void shouldThrowExceptionWhenEnrollmentNotFound() {
-            when(enrollmentRepository.existsById(999L)).thenReturn(false);
-
-            assertThatThrownBy(() -> progressService.getProgressByEnrollment(999L))
-                    .isInstanceOf(EnrollmentNotFoundException.class);
+            assertThatThrownBy(() -> progressService.updateProgress(999L, request, "mamadou@sencours.sn"))
+                    .isInstanceOf(ResourceNotFoundException.class);
         }
     }
 
@@ -240,22 +196,72 @@ class ProgressServiceTest {
         @Test
         @DisplayName("Devrait retourner la progression d'une leçon")
         void shouldReturnLessonProgress() {
-            when(progressRepository.findByEnrollmentIdAndLessonId(1L, 1L)).thenReturn(Optional.of(progress));
-            when(progressMapper.toResponse(progress)).thenReturn(progressResponse);
+            when(userRepository.findByEmail("mamadou@sencours.sn")).thenReturn(Optional.of(student));
+            when(progressRepository.findByUserIdAndLessonId(1L, 1L)).thenReturn(Optional.of(progress));
 
-            ProgressResponse result = progressService.getProgress(1L, 1L);
+            ProgressResponse result = progressService.getProgress(1L, "mamadou@sencours.sn");
 
             assertThat(result).isNotNull();
             assertThat(result.getLessonId()).isEqualTo(1L);
+            assertThat(result.getCompleted()).isFalse();
         }
 
         @Test
-        @DisplayName("Devrait lever exception si progression non trouvée")
-        void shouldThrowExceptionWhenProgressNotFound() {
-            when(progressRepository.findByEnrollmentIdAndLessonId(1L, 999L)).thenReturn(Optional.empty());
+        @DisplayName("Devrait retourner une progression vide si non trouvée")
+        void shouldReturnEmptyProgressWhenNotFound() {
+            when(userRepository.findByEmail("mamadou@sencours.sn")).thenReturn(Optional.of(student));
+            when(progressRepository.findByUserIdAndLessonId(1L, 1L)).thenReturn(Optional.empty());
 
-            assertThatThrownBy(() -> progressService.getProgress(1L, 999L))
-                    .isInstanceOf(ProgressNotFoundException.class);
+            ProgressResponse result = progressService.getProgress(1L, "mamadou@sencours.sn");
+
+            assertThat(result).isNotNull();
+            assertThat(result.getLessonId()).isEqualTo(1L);
+            assertThat(result.getCompleted()).isFalse();
+            assertThat(result.getWatchTimeSeconds()).isEqualTo(0);
+        }
+    }
+
+    @Nested
+    @DisplayName("Tests pour getCourseProgress()")
+    class GetCourseProgressTests {
+
+        @Test
+        @DisplayName("Devrait retourner les progressions d'un cours")
+        void shouldReturnCourseProgress() {
+            when(userRepository.findByEmail("mamadou@sencours.sn")).thenReturn(Optional.of(student));
+            when(progressRepository.findByUserIdAndCourseId(1L, 1L)).thenReturn(List.of(progress));
+
+            List<ProgressResponse> result = progressService.getCourseProgress(1L, "mamadou@sencours.sn");
+
+            assertThat(result).hasSize(1);
+        }
+
+        @Test
+        @DisplayName("Devrait lever exception si utilisateur non trouvé")
+        void shouldThrowExceptionWhenUserNotFound() {
+            when(userRepository.findByEmail("unknown@sencours.sn")).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> progressService.getCourseProgress(1L, "unknown@sencours.sn"))
+                    .isInstanceOf(ResourceNotFoundException.class);
+        }
+    }
+
+    @Nested
+    @DisplayName("Tests pour markAsCompleted()")
+    class MarkAsCompletedTests {
+
+        @Test
+        @DisplayName("Devrait marquer une leçon comme complétée")
+        void shouldMarkLessonAsCompleted() {
+            when(userRepository.findByEmail("mamadou@sencours.sn")).thenReturn(Optional.of(student));
+            when(lessonRepository.findById(1L)).thenReturn(Optional.of(lesson));
+            when(enrollmentRepository.existsByUserIdAndCourseId(1L, 1L)).thenReturn(true);
+            when(progressRepository.findByUserIdAndLessonId(1L, 1L)).thenReturn(Optional.of(progress));
+            when(progressRepository.save(any(Progress.class))).thenReturn(progress);
+
+            progressService.markAsCompleted(1L, "mamadou@sencours.sn");
+
+            verify(progressRepository).save(any(Progress.class));
         }
     }
 }

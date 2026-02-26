@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
@@ -14,12 +15,17 @@ import java.time.LocalDateTime;
 public class EnrollmentResponse {
 
     private Long id;
-    private Long userId;
-    private String userFirstName;
-    private String userLastName;
     private Long courseId;
     private String courseTitle;
+    private String courseThumbnail;
+    private Long userId;
+    private String userName;
     private LocalDateTime enrolledAt;
     private LocalDateTime completedAt;
-    private Double progressPercentage;
+    private Integer progressPercentage;
+    private String paymentReference;
+    private String paymentMethod;
+    private BigDecimal amountPaid;
+    private Integer totalLessons;
+    private Integer completedLessons;
 }

@@ -14,12 +14,11 @@ import java.time.LocalDateTime;
 public class ReviewResponse {
 
     private Long id;
-    private Long userId;
-    private String userFullName;
     private Long courseId;
-    private String courseTitle;
+    private Long userId;
+    private String userName;
+    private String userInitials;
     private Integer rating;
     private String comment;
     private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
 }

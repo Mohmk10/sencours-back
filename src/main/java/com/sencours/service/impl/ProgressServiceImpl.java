@@ -1,112 +1,124 @@
 package com.sencours.service.impl;
 
+import com.sencours.dto.request.ProgressRequest;
 import com.sencours.dto.response.ProgressResponse;
-import com.sencours.entity.Enrollment;
-import com.sencours.entity.Progress;
-import com.sencours.exception.EnrollmentNotFoundException;
-import com.sencours.exception.ProgressNotFoundException;
-import com.sencours.mapper.ProgressMapper;
-import com.sencours.repository.EnrollmentRepository;
-import com.sencours.repository.ProgressRepository;
+import com.sencours.entity.*;
+import com.sencours.exception.BadRequestException;
+import com.sencours.exception.ResourceNotFoundException;
+import com.sencours.repository.*;
+import com.sencours.service.EnrollmentService;
 import com.sencours.service.ProgressService;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.Collectors;
 
-@Slf4j
 @Service
 @RequiredArgsConstructor
-@Transactional
 public class ProgressServiceImpl implements ProgressService {
 
     private final ProgressRepository progressRepository;
+    private final LessonRepository lessonRepository;
+    private final UserRepository userRepository;
     private final EnrollmentRepository enrollmentRepository;
-    private final ProgressMapper progressMapper;
+    private final EnrollmentService enrollmentService;
 
     @Override
-    public ProgressResponse markLessonCompleted(Long enrollmentId, Long lessonId) {
-        log.info("Marquage de la leçon {} comme complétée pour l'inscription {}", lessonId, enrollmentId);
+    @Transactional
+    public ProgressResponse updateProgress(Long lessonId, ProgressRequest request, String userEmail) {
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("Utilisateur non trouvé"));
 
-        Progress progress = progressRepository.findByEnrollmentIdAndLessonId(enrollmentId, lessonId)
-                .orElseThrow(() -> new ProgressNotFoundException(enrollmentId, lessonId));
+        Lesson lesson = lessonRepository.findById(lessonId)
+                .orElseThrow(() -> new ResourceNotFoundException("Leçon non trouvée"));
 
-        if (!progress.getCompleted()) {
-            progress.setCompleted(true);
-            progress.setCompletedAt(LocalDateTime.now());
-            progress = progressRepository.save(progress);
+        Course course = lesson.getSection().getCourse();
 
-            checkAndUpdateCourseCompletion(enrollmentId);
-        }
-
-        log.info("Leçon {} marquée comme complétée pour l'inscription {}", lessonId, enrollmentId);
-        return progressMapper.toResponse(progress);
-    }
-
-    @Override
-    public ProgressResponse markLessonIncomplete(Long enrollmentId, Long lessonId) {
-        log.info("Marquage de la leçon {} comme non complétée pour l'inscription {}", lessonId, enrollmentId);
-
-        Progress progress = progressRepository.findByEnrollmentIdAndLessonId(enrollmentId, lessonId)
-                .orElseThrow(() -> new ProgressNotFoundException(enrollmentId, lessonId));
-
-        if (progress.getCompleted()) {
-            progress.setCompleted(false);
-            progress.setCompletedAt(null);
-            progress = progressRepository.save(progress);
-
-            Enrollment enrollment = progress.getEnrollment();
-            if (enrollment.getCompletedAt() != null) {
-                enrollment.setCompletedAt(null);
-                enrollmentRepository.save(enrollment);
+        if (!lesson.getIsFree()) {
+            if (!enrollmentRepository.existsByUserIdAndCourseId(user.getId(), course.getId())) {
+                throw new BadRequestException("Vous devez être inscrit au cours pour accéder à cette leçon");
             }
         }
 
-        log.info("Leçon {} marquée comme non complétée pour l'inscription {}", lessonId, enrollmentId);
-        return progressMapper.toResponse(progress);
-    }
+        Progress progress = progressRepository.findByUserIdAndLessonId(user.getId(), lessonId)
+                .orElse(Progress.builder()
+                        .user(user)
+                        .lesson(lesson)
+                        .completed(false)
+                        .watchTimeSeconds(0)
+                        .lastPositionSeconds(0)
+                        .build());
 
-    @Override
-    @Transactional(readOnly = true)
-    public List<ProgressResponse> getProgressByEnrollment(Long enrollmentId) {
-        log.debug("Récupération des progressions pour l'inscription {}", enrollmentId);
-
-        if (!enrollmentRepository.existsById(enrollmentId)) {
-            throw new EnrollmentNotFoundException(enrollmentId);
-        }
-
-        return progressRepository.findByEnrollmentId(enrollmentId).stream()
-                .map(progressMapper::toResponse)
-                .toList();
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public ProgressResponse getProgress(Long enrollmentId, Long lessonId) {
-        log.debug("Récupération de la progression pour l'inscription {} et la leçon {}", enrollmentId, lessonId);
-
-        Progress progress = progressRepository.findByEnrollmentIdAndLessonId(enrollmentId, lessonId)
-                .orElseThrow(() -> new ProgressNotFoundException(enrollmentId, lessonId));
-
-        return progressMapper.toResponse(progress);
-    }
-
-    private void checkAndUpdateCourseCompletion(Long enrollmentId) {
-        int totalLessons = progressRepository.countByEnrollmentId(enrollmentId);
-        int completedLessons = progressRepository.countByEnrollmentIdAndCompletedTrue(enrollmentId);
-
-        if (totalLessons > 0 && totalLessons == completedLessons) {
-            Enrollment enrollment = enrollmentRepository.findById(enrollmentId)
-                    .orElseThrow(() -> new EnrollmentNotFoundException(enrollmentId));
-
-            if (enrollment.getCompletedAt() == null) {
-                enrollment.setCompletedAt(LocalDateTime.now());
-                enrollmentRepository.save(enrollment);
-                log.info("Cours complété pour l'inscription {}", enrollmentId);
+        if (request.getCompleted() != null) {
+            progress.setCompleted(request.getCompleted());
+            if (request.getCompleted() && progress.getCompletedAt() == null) {
+                progress.setCompletedAt(LocalDateTime.now());
             }
         }
+
+        if (request.getWatchTimeSeconds() != null) {
+            progress.setWatchTimeSeconds(request.getWatchTimeSeconds());
+        }
+
+        if (request.getLastPositionSeconds() != null) {
+            progress.setLastPositionSeconds(request.getLastPositionSeconds());
+        }
+
+        progress = progressRepository.save(progress);
+
+        if (enrollmentRepository.existsByUserIdAndCourseId(user.getId(), course.getId())) {
+            enrollmentService.updateProgress(course.getId(), userEmail);
+        }
+
+        return mapToResponse(progress);
+    }
+
+    @Override
+    public ProgressResponse getProgress(Long lessonId, String userEmail) {
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("Utilisateur non trouvé"));
+
+        return progressRepository.findByUserIdAndLessonId(user.getId(), lessonId)
+                .map(this::mapToResponse)
+                .orElse(ProgressResponse.builder()
+                        .lessonId(lessonId)
+                        .completed(false)
+                        .watchTimeSeconds(0)
+                        .lastPositionSeconds(0)
+                        .build());
+    }
+
+    @Override
+    public List<ProgressResponse> getCourseProgress(Long courseId, String userEmail) {
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("Utilisateur non trouvé"));
+
+        return progressRepository.findByUserIdAndCourseId(user.getId(), courseId)
+                .stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public void markAsCompleted(Long lessonId, String userEmail) {
+        ProgressRequest request = new ProgressRequest();
+        request.setCompleted(true);
+        updateProgress(lessonId, request, userEmail);
+    }
+
+    private ProgressResponse mapToResponse(Progress progress) {
+        return ProgressResponse.builder()
+                .id(progress.getId())
+                .lessonId(progress.getLesson().getId())
+                .lessonTitle(progress.getLesson().getTitle())
+                .completed(progress.getCompleted())
+                .completedAt(progress.getCompletedAt())
+                .watchTimeSeconds(progress.getWatchTimeSeconds())
+                .lastPositionSeconds(progress.getLastPositionSeconds())
+                .build();
     }
 }

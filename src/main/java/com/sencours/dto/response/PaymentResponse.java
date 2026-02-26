@@ -5,14 +5,17 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
+
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class CourseRatingResponse {
+public class PaymentResponse {
 
-    private Long courseId;
-    private String courseTitle;
-    private Double averageRating;
-    private Long totalReviews;
+    private String reference;
+    private String status;
+    private String message;
+    private BigDecimal amount;
+    private String method;
 }

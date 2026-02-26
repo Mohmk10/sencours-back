@@ -1,186 +1,192 @@
 package com.sencours.service.impl;
 
 import com.sencours.dto.request.EnrollmentRequest;
-import com.sencours.dto.response.EnrollmentDetailResponse;
 import com.sencours.dto.response.EnrollmentResponse;
-import com.sencours.dto.response.ProgressResponse;
-import com.sencours.dto.response.ProgressSummaryResponse;
-import com.sencours.entity.Course;
-import com.sencours.entity.Enrollment;
-import com.sencours.entity.Lesson;
-import com.sencours.entity.Progress;
-import com.sencours.entity.User;
-import com.sencours.enums.Role;
-import com.sencours.exception.AlreadyEnrolledException;
-import com.sencours.exception.EnrollmentNotFoundException;
+import com.sencours.dto.response.PaymentResponse;
+import com.sencours.entity.*;
+import com.sencours.exception.BadRequestException;
 import com.sencours.exception.ResourceNotFoundException;
-import com.sencours.exception.UnauthorizedReviewAccessException;
-import com.sencours.mapper.EnrollmentMapper;
-import com.sencours.mapper.ProgressMapper;
-import com.sencours.repository.CourseRepository;
-import com.sencours.repository.EnrollmentRepository;
-import com.sencours.repository.LessonRepository;
-import com.sencours.repository.ProgressRepository;
-import com.sencours.repository.UserRepository;
+import com.sencours.repository.*;
 import com.sencours.service.EnrollmentService;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
+import java.util.stream.Collectors;
 
-@Slf4j
 @Service
 @RequiredArgsConstructor
-@Transactional
 public class EnrollmentServiceImpl implements EnrollmentService {
 
     private final EnrollmentRepository enrollmentRepository;
-    private final UserRepository userRepository;
     private final CourseRepository courseRepository;
-    private final LessonRepository lessonRepository;
+    private final UserRepository userRepository;
     private final ProgressRepository progressRepository;
-    private final EnrollmentMapper enrollmentMapper;
-    private final ProgressMapper progressMapper;
 
     @Override
-    public EnrollmentResponse enroll(Long userId, EnrollmentRequest request) {
-        log.info("Inscription de l'utilisateur {} au cours {}", userId, request.getCourseId());
+    @Transactional
+    public PaymentResponse initiatePayment(Long courseId, EnrollmentRequest request, String userEmail) {
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("Utilisateur non trouvé"));
 
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Utilisateur", "id", userId));
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Cours non trouvé"));
 
-        Course course = courseRepository.findById(request.getCourseId())
-                .orElseThrow(() -> new ResourceNotFoundException("Cours", "id", request.getCourseId()));
-
-        if (user.getRole() != Role.ETUDIANT) {
-            throw new IllegalArgumentException("Seul un utilisateur avec le rôle ETUDIANT peut s'inscrire à un cours");
+        if (enrollmentRepository.existsByUserIdAndCourseId(user.getId(), courseId)) {
+            throw new BadRequestException("Vous êtes déjà inscrit à ce cours");
         }
 
-        if (course.getInstructor().getId().equals(user.getId())) {
-            throw new IllegalArgumentException("Un instructeur ne peut pas s'inscrire à son propre cours");
-        }
+        String reference = "PAY-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
 
-        if (enrollmentRepository.existsByStudentIdAndCourseId(userId, request.getCourseId())) {
-            throw new AlreadyEnrolledException(userId, request.getCourseId());
-        }
-
-        Enrollment enrollment = new Enrollment();
-        enrollment.setStudent(user);
-        enrollment.setCourse(course);
-
-        Enrollment savedEnrollment = enrollmentRepository.save(enrollment);
-
-        List<Lesson> lessons = lessonRepository.findByCourseIdOrderByOrderIndex(course.getId());
-        for (Lesson lesson : lessons) {
-            Progress progress = new Progress();
-            progress.setEnrollment(savedEnrollment);
-            progress.setLesson(lesson);
-            progress.setCompleted(false);
-            progressRepository.save(progress);
-        }
-
-        log.info("Inscription créée avec succès. ID: {}, {} leçons initialisées", savedEnrollment.getId(), lessons.size());
-
-        double progressPercentage = lessons.isEmpty() ? 100.0 : 0.0;
-        return enrollmentMapper.toResponse(savedEnrollment, progressPercentage);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<EnrollmentResponse> getMyEnrollments(Long userId) {
-        log.debug("Récupération des inscriptions de l'utilisateur {}", userId);
-
-        if (!userRepository.existsById(userId)) {
-            throw new ResourceNotFoundException("Utilisateur", "id", userId);
-        }
-
-        return enrollmentRepository.findByStudentId(userId).stream()
-                .map(enrollment -> {
-                    double percentage = calculateProgressPercentage(enrollment.getId());
-                    return enrollmentMapper.toResponse(enrollment, percentage);
-                })
-                .toList();
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public EnrollmentDetailResponse getEnrollmentDetail(Long enrollmentId) {
-        log.debug("Récupération du détail de l'inscription {}", enrollmentId);
-
-        Enrollment enrollment = enrollmentRepository.findById(enrollmentId)
-                .orElseThrow(() -> new EnrollmentNotFoundException(enrollmentId));
-
-        double percentage = calculateProgressPercentage(enrollmentId);
-
-        List<ProgressResponse> progresses = progressRepository.findByEnrollmentId(enrollmentId).stream()
-                .map(progressMapper::toResponse)
-                .toList();
-
-        return enrollmentMapper.toDetailResponse(enrollment, percentage, progresses);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public ProgressSummaryResponse calculateProgress(Long enrollmentId) {
-        log.debug("Calcul de la progression pour l'inscription {}", enrollmentId);
-
-        if (!enrollmentRepository.existsById(enrollmentId)) {
-            throw new EnrollmentNotFoundException(enrollmentId);
-        }
-
-        int totalLessons = progressRepository.countByEnrollmentId(enrollmentId);
-        int completedLessons = progressRepository.countByEnrollmentIdAndCompletedTrue(enrollmentId);
-
-        double percentage = totalLessons == 0 ? 100.0 : (double) completedLessons / totalLessons * 100;
-
-        return ProgressSummaryResponse.builder()
-                .totalLessons(totalLessons)
-                .completedLessons(completedLessons)
-                .percentage(Math.round(percentage * 100.0) / 100.0)
+        return PaymentResponse.builder()
+                .reference(reference)
+                .status("SUCCESS")
+                .message("Paiement " + request.getPaymentMethod() + " simulé avec succès")
+                .amount(course.getPrice())
+                .method(request.getPaymentMethod())
                 .build();
     }
 
     @Override
-    @Transactional(readOnly = true)
-    public List<EnrollmentResponse> getEnrollmentsByCourse(Long courseId) {
-        log.debug("Récupération des inscriptions pour le cours {}", courseId);
+    @Transactional
+    public EnrollmentResponse completeEnrollment(Long courseId, String paymentReference, String userEmail) {
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("Utilisateur non trouvé"));
 
-        if (!courseRepository.existsById(courseId)) {
-            throw new ResourceNotFoundException("Cours", "id", courseId);
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Cours non trouvé"));
+
+        if (enrollmentRepository.existsByUserIdAndCourseId(user.getId(), courseId)) {
+            throw new BadRequestException("Vous êtes déjà inscrit à ce cours");
         }
 
-        return enrollmentRepository.findByCourseId(courseId).stream()
-                .map(enrollment -> {
-                    double percentage = calculateProgressPercentage(enrollment.getId());
-                    return enrollmentMapper.toResponse(enrollment, percentage);
-                })
-                .toList();
+        Enrollment enrollment = Enrollment.builder()
+                .user(user)
+                .course(course)
+                .paymentReference(paymentReference)
+                .amountPaid(course.getPrice())
+                .build();
+
+        enrollment = enrollmentRepository.save(enrollment);
+
+        return mapToResponse(enrollment);
     }
 
     @Override
-    public void unenroll(Long enrollmentId, Long userId) {
-        log.info("Désinscription de l'inscription {} par l'utilisateur {}", enrollmentId, userId);
+    @Transactional
+    public EnrollmentResponse enrollFree(Long courseId, String userEmail) {
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("Utilisateur non trouvé"));
 
-        Enrollment enrollment = enrollmentRepository.findById(enrollmentId)
-                .orElseThrow(() -> new EnrollmentNotFoundException(enrollmentId));
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Cours non trouvé"));
 
-        if (!enrollment.getStudent().getId().equals(userId)) {
-            throw new UnauthorizedReviewAccessException("Vous ne pouvez vous désinscrire que de vos propres inscriptions");
+        if (course.getPrice().compareTo(BigDecimal.ZERO) > 0) {
+            throw new BadRequestException("Ce cours n'est pas gratuit");
         }
 
-        enrollmentRepository.delete(enrollment);
+        if (enrollmentRepository.existsByUserIdAndCourseId(user.getId(), courseId)) {
+            throw new BadRequestException("Vous êtes déjà inscrit à ce cours");
+        }
 
-        log.info("Désinscription effectuée avec succès. ID: {}", enrollmentId);
+        Enrollment enrollment = Enrollment.builder()
+                .user(user)
+                .course(course)
+                .amountPaid(BigDecimal.ZERO)
+                .build();
+
+        enrollment = enrollmentRepository.save(enrollment);
+
+        return mapToResponse(enrollment);
     }
 
-    private double calculateProgressPercentage(Long enrollmentId) {
-        int totalLessons = progressRepository.countByEnrollmentId(enrollmentId);
-        if (totalLessons == 0) {
-            return 100.0;
+    @Override
+    public boolean isEnrolled(Long courseId, String userEmail) {
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("Utilisateur non trouvé"));
+
+        return enrollmentRepository.existsByUserIdAndCourseId(user.getId(), courseId);
+    }
+
+    @Override
+    public List<EnrollmentResponse> getMyEnrollments(String userEmail) {
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("Utilisateur non trouvé"));
+
+        return enrollmentRepository.findByUserIdOrderByEnrolledAtDesc(user.getId())
+                .stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public EnrollmentResponse getEnrollment(Long courseId, String userEmail) {
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("Utilisateur non trouvé"));
+
+        Enrollment enrollment = enrollmentRepository.findByUserIdAndCourseId(user.getId(), courseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Inscription non trouvée"));
+
+        return mapToResponse(enrollment);
+    }
+
+    @Override
+    @Transactional
+    public void updateProgress(Long courseId, String userEmail) {
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("Utilisateur non trouvé"));
+
+        Enrollment enrollment = enrollmentRepository.findByUserIdAndCourseId(user.getId(), courseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Inscription non trouvée"));
+
+        Course course = enrollment.getCourse();
+        int totalLessons = 0;
+        for (Section section : course.getSections()) {
+            totalLessons += section.getLessons().size();
         }
-        int completedLessons = progressRepository.countByEnrollmentIdAndCompletedTrue(enrollmentId);
-        return Math.round((double) completedLessons / totalLessons * 10000.0) / 100.0;
+
+        Long completedLessons = progressRepository.countCompletedLessonsByUserAndCourse(user.getId(), courseId);
+
+        int percentage = totalLessons > 0 ? (int) ((completedLessons * 100) / totalLessons) : 0;
+        enrollment.setProgressPercentage(percentage);
+
+        if (percentage >= 100 && enrollment.getCompletedAt() == null) {
+            enrollment.setCompletedAt(LocalDateTime.now());
+        }
+
+        enrollmentRepository.save(enrollment);
+    }
+
+    private EnrollmentResponse mapToResponse(Enrollment enrollment) {
+        Course course = enrollment.getCourse();
+
+        int totalLessons = 0;
+        for (Section section : course.getSections()) {
+            totalLessons += section.getLessons().size();
+        }
+
+        Long completedLessons = progressRepository.countCompletedLessonsByUserAndCourse(
+                enrollment.getUser().getId(), course.getId());
+
+        return EnrollmentResponse.builder()
+                .id(enrollment.getId())
+                .courseId(course.getId())
+                .courseTitle(course.getTitle())
+                .courseThumbnail(course.getThumbnailUrl())
+                .userId(enrollment.getUser().getId())
+                .userName(enrollment.getUser().getFirstName() + " " + enrollment.getUser().getLastName())
+                .enrolledAt(enrollment.getEnrolledAt())
+                .completedAt(enrollment.getCompletedAt())
+                .progressPercentage(enrollment.getProgressPercentage())
+                .paymentReference(enrollment.getPaymentReference())
+                .paymentMethod(enrollment.getPaymentMethod())
+                .amountPaid(enrollment.getAmountPaid())
+                .totalLessons(totalLessons)
+                .completedLessons(completedLessons.intValue())
+                .build();
     }
 }

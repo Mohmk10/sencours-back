@@ -122,9 +122,9 @@ class SecurityIntegrationTest {
         }
 
         @Test
-        @DisplayName("GET /api/v1/courses/{courseId}/reviews - Accessible sans authentification")
+        @DisplayName("GET /api/v1/reviews/courses/{courseId} - Accessible sans authentification")
         void shouldAccessReviewsWithoutAuth() throws Exception {
-            mockMvc.perform(get("/api/v1/courses/" + course.getId() + "/reviews"))
+            mockMvc.perform(get("/api/v1/reviews/courses/" + course.getId()))
                     .andExpect(status().isOk());
         }
     }
@@ -234,27 +234,27 @@ class SecurityIntegrationTest {
     class EnrollmentTests {
 
         @Test
-        @DisplayName("ETUDIANT peut s'inscrire à un cours - 201")
-        void studentCanEnroll() throws Exception {
+        @DisplayName("ETUDIANT peut initier un paiement - 200")
+        void studentCanInitiatePayment() throws Exception {
             EnrollmentRequest request = EnrollmentRequest.builder()
-                    .courseId(course.getId())
+                    .paymentMethod("ORANGE_MONEY")
                     .build();
 
-            mockMvc.perform(post("/api/v1/enrollments")
+            mockMvc.perform(post("/api/v1/enrollments/courses/" + course.getId() + "/pay")
                             .header("Authorization", "Bearer " + studentToken)
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
-                    .andExpect(status().isCreated());
+                    .andExpect(status().isOk());
         }
 
         @Test
         @DisplayName("Non authentifié ne peut pas s'inscrire - 401")
         void unauthenticatedCannotEnroll() throws Exception {
             EnrollmentRequest request = EnrollmentRequest.builder()
-                    .courseId(course.getId())
+                    .paymentMethod("WAVE")
                     .build();
 
-            mockMvc.perform(post("/api/v1/enrollments")
+            mockMvc.perform(post("/api/v1/enrollments/courses/" + course.getId() + "/pay")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
                     .andExpect(status().isUnauthorized());
@@ -275,7 +275,7 @@ class SecurityIntegrationTest {
                     .comment("Excellent cours!")
                     .build();
 
-            mockMvc.perform(post("/api/v1/courses/" + course.getId() + "/reviews")
+            mockMvc.perform(post("/api/v1/reviews/courses/" + course.getId())
                             .header("Authorization", "Bearer " + studentToken)
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
@@ -283,18 +283,18 @@ class SecurityIntegrationTest {
         }
 
         @Test
-        @DisplayName("ETUDIANT non inscrit ne peut pas créer un avis - 403")
+        @DisplayName("ETUDIANT non inscrit ne peut pas créer un avis - 400")
         void nonEnrolledStudentCannotCreateReview() throws Exception {
             ReviewRequest request = ReviewRequest.builder()
                     .rating(5)
                     .comment("Excellent cours!")
                     .build();
 
-            mockMvc.perform(post("/api/v1/courses/" + course.getId() + "/reviews")
+            mockMvc.perform(post("/api/v1/reviews/courses/" + course.getId())
                             .header("Authorization", "Bearer " + studentToken)
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
-                    .andExpect(status().isForbidden());
+                    .andExpect(status().isBadRequest());
         }
 
         @Test
@@ -305,7 +305,7 @@ class SecurityIntegrationTest {
                     .comment("Excellent cours!")
                     .build();
 
-            mockMvc.perform(post("/api/v1/courses/" + course.getId() + "/reviews")
+            mockMvc.perform(post("/api/v1/reviews/courses/" + course.getId())
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
                     .andExpect(status().isUnauthorized());
@@ -384,7 +384,7 @@ class SecurityIntegrationTest {
 
     private Enrollment createEnrollment(User student, Course course) {
         Enrollment e = new Enrollment();
-        e.setStudent(student);
+        e.setUser(student);
         e.setCourse(course);
         return enrollmentRepository.save(e);
     }

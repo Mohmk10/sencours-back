@@ -82,10 +82,19 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/instructor-applications/my-application").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/v1/instructor-applications/check").authenticated()
 
-                        // Reviews - authentifié
-                        .requestMatchers(HttpMethod.POST, "/api/v1/courses/*/reviews").authenticated()
-                        .requestMatchers(HttpMethod.PUT, "/api/v1/courses/*/reviews/*").authenticated()
-                        .requestMatchers(HttpMethod.DELETE, "/api/v1/courses/*/reviews/*").authenticated()
+                        // Enrollments
+                        .requestMatchers(HttpMethod.GET, "/api/v1/enrollments/courses/*/check").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/enrollments/my-enrollments").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/enrollments/**").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/enrollments/**").authenticated()
+
+                        // Progress
+                        .requestMatchers("/api/v1/progress/**").authenticated()
+
+                        // Reviews - lecture publique, écriture authentifiée
+                        .requestMatchers(HttpMethod.GET, "/api/v1/reviews/courses/*").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/reviews/courses/*/average").permitAll()
+                        .requestMatchers("/api/v1/reviews/**").authenticated()
 
                         // Upload de fichiers - INSTRUCTEUR, ADMIN, SUPER_ADMIN
                         .requestMatchers(HttpMethod.POST, "/api/v1/files/upload").hasAnyRole("INSTRUCTEUR", "ADMIN", "SUPER_ADMIN")

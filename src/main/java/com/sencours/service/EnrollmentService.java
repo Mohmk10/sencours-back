@@ -1,23 +1,24 @@
 package com.sencours.service;
 
 import com.sencours.dto.request.EnrollmentRequest;
-import com.sencours.dto.response.EnrollmentDetailResponse;
 import com.sencours.dto.response.EnrollmentResponse;
-import com.sencours.dto.response.ProgressSummaryResponse;
+import com.sencours.dto.response.PaymentResponse;
 
 import java.util.List;
 
 public interface EnrollmentService {
 
-    EnrollmentResponse enroll(Long userId, EnrollmentRequest request);
+    PaymentResponse initiatePayment(Long courseId, EnrollmentRequest request, String userEmail);
 
-    List<EnrollmentResponse> getMyEnrollments(Long userId);
+    EnrollmentResponse completeEnrollment(Long courseId, String paymentReference, String userEmail);
 
-    EnrollmentDetailResponse getEnrollmentDetail(Long enrollmentId);
+    EnrollmentResponse enrollFree(Long courseId, String userEmail);
 
-    ProgressSummaryResponse calculateProgress(Long enrollmentId);
+    boolean isEnrolled(Long courseId, String userEmail);
 
-    List<EnrollmentResponse> getEnrollmentsByCourse(Long courseId);
+    List<EnrollmentResponse> getMyEnrollments(String userEmail);
 
-    void unenroll(Long enrollmentId, Long userId);
+    EnrollmentResponse getEnrollment(Long courseId, String userEmail);
+
+    void updateProgress(Long courseId, String userEmail);
 }

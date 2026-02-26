@@ -1,16 +1,17 @@
 package com.sencours.service;
 
+import com.sencours.dto.request.ProgressRequest;
 import com.sencours.dto.response.ProgressResponse;
 
 import java.util.List;
 
 public interface ProgressService {
 
-    ProgressResponse markLessonCompleted(Long enrollmentId, Long lessonId);
+    ProgressResponse updateProgress(Long lessonId, ProgressRequest request, String userEmail);
 
-    ProgressResponse markLessonIncomplete(Long enrollmentId, Long lessonId);
+    ProgressResponse getProgress(Long lessonId, String userEmail);
 
-    List<ProgressResponse> getProgressByEnrollment(Long enrollmentId);
+    List<ProgressResponse> getCourseProgress(Long courseId, String userEmail);
 
-    ProgressResponse getProgress(Long enrollmentId, Long lessonId);
+    void markAsCompleted(Long lessonId, String userEmail);
 }

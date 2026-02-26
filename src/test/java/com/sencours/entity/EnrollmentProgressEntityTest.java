@@ -86,7 +86,7 @@ class EnrollmentProgressEntityTest {
         lesson = lessonRepository.save(lesson);
 
         enrollment = new Enrollment();
-        enrollment.setStudent(student);
+        enrollment.setUser(student);
         enrollment.setCourse(course);
     }
 
@@ -100,12 +100,12 @@ class EnrollmentProgressEntityTest {
     }
 
     @Test
-    @DisplayName("Should enforce unique student-course constraint")
-    void shouldEnforceUniqueStudentCourseConstraint() {
+    @DisplayName("Should enforce unique user-course constraint")
+    void shouldEnforceUniqueUserCourseConstraint() {
         enrollmentRepository.save(enrollment);
 
         Enrollment duplicateEnrollment = new Enrollment();
-        duplicateEnrollment.setStudent(student);
+        duplicateEnrollment.setUser(student);
         duplicateEnrollment.setCourse(course);
 
         assertThatThrownBy(() -> {
@@ -114,21 +114,21 @@ class EnrollmentProgressEntityTest {
     }
 
     @Test
-    @DisplayName("Should find enrollments by student")
-    void shouldFindEnrollmentsByStudent() {
+    @DisplayName("Should find enrollments by user")
+    void shouldFindEnrollmentsByUser() {
         enrollmentRepository.save(enrollment);
 
-        var enrollments = enrollmentRepository.findByStudentId(student.getId());
+        var enrollments = enrollmentRepository.findByUserIdOrderByEnrolledAtDesc(student.getId());
 
         assertThat(enrollments).hasSize(1);
     }
 
     @Test
-    @DisplayName("Should find enrollment by student and course")
-    void shouldFindEnrollmentByStudentAndCourse() {
+    @DisplayName("Should find enrollment by user and course")
+    void shouldFindEnrollmentByUserAndCourse() {
         enrollmentRepository.save(enrollment);
 
-        var foundEnrollment = enrollmentRepository.findByStudentIdAndCourseId(
+        var foundEnrollment = enrollmentRepository.findByUserIdAndCourseId(
                 student.getId(), course.getId());
 
         assertThat(foundEnrollment).isPresent();
@@ -139,21 +139,21 @@ class EnrollmentProgressEntityTest {
     void shouldCheckIfEnrollmentExists() {
         enrollmentRepository.save(enrollment);
 
-        assertThat(enrollmentRepository.existsByStudentIdAndCourseId(
+        assertThat(enrollmentRepository.existsByUserIdAndCourseId(
                 student.getId(), course.getId())).isTrue();
-        assertThat(enrollmentRepository.existsByStudentIdAndCourseId(
+        assertThat(enrollmentRepository.existsByUserIdAndCourseId(
                 student.getId(), 999L)).isFalse();
     }
 
     @Test
-    @DisplayName("Should save progress for enrollment and lesson")
-    void shouldSaveProgressForEnrollmentAndLesson() {
-        Enrollment savedEnrollment = enrollmentRepository.save(enrollment);
-
+    @DisplayName("Should save progress for user and lesson")
+    void shouldSaveProgressForUserAndLesson() {
         Progress progress = new Progress();
-        progress.setEnrollment(savedEnrollment);
+        progress.setUser(student);
         progress.setLesson(lesson);
         progress.setCompleted(false);
+        progress.setWatchTimeSeconds(0);
+        progress.setLastPositionSeconds(0);
 
         Progress savedProgress = progressRepository.save(progress);
 
@@ -164,13 +164,13 @@ class EnrollmentProgressEntityTest {
     @Test
     @DisplayName("Should mark progress as completed")
     void shouldMarkProgressAsCompleted() {
-        Enrollment savedEnrollment = enrollmentRepository.save(enrollment);
-
         Progress progress = new Progress();
-        progress.setEnrollment(savedEnrollment);
+        progress.setUser(student);
         progress.setLesson(lesson);
         progress.setCompleted(true);
         progress.setCompletedAt(LocalDateTime.now());
+        progress.setWatchTimeSeconds(600);
+        progress.setLastPositionSeconds(600);
 
         Progress savedProgress = progressRepository.save(progress);
 
@@ -179,17 +179,15 @@ class EnrollmentProgressEntityTest {
     }
 
     @Test
-    @DisplayName("Should enforce unique enrollment-lesson constraint in progress")
-    void shouldEnforceUniqueEnrollmentLessonConstraint() {
-        Enrollment savedEnrollment = enrollmentRepository.save(enrollment);
-
+    @DisplayName("Should enforce unique user-lesson constraint in progress")
+    void shouldEnforceUniqueUserLessonConstraint() {
         Progress progress1 = new Progress();
-        progress1.setEnrollment(savedEnrollment);
+        progress1.setUser(student);
         progress1.setLesson(lesson);
         progressRepository.save(progress1);
 
         Progress progress2 = new Progress();
-        progress2.setEnrollment(savedEnrollment);
+        progress2.setUser(student);
         progress2.setLesson(lesson);
 
         assertThatThrownBy(() -> {
@@ -198,19 +196,17 @@ class EnrollmentProgressEntityTest {
     }
 
     @Test
-    @DisplayName("Should count completed progress")
+    @DisplayName("Should count completed progress by user and course")
     void shouldCountCompletedProgress() {
-        Enrollment savedEnrollment = enrollmentRepository.save(enrollment);
-
         Progress progress = new Progress();
-        progress.setEnrollment(savedEnrollment);
+        progress.setUser(student);
         progress.setLesson(lesson);
         progress.setCompleted(true);
         progressRepository.save(progress);
 
-        int completedCount = progressRepository.countByEnrollmentIdAndCompletedTrue(
-                savedEnrollment.getId());
+        Long completedCount = progressRepository.countCompletedLessonsByUserAndCourse(
+                student.getId(), course.getId());
 
-        assertThat(completedCount).isEqualTo(1);
+        assertThat(completedCount).isEqualTo(1L);
     }
 }

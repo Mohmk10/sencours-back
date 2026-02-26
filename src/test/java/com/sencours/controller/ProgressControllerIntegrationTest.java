@@ -1,6 +1,7 @@
 package com.sencours.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sencours.dto.request.ProgressRequest;
 import com.sencours.entity.*;
 import com.sencours.enums.LessonType;
 import com.sencours.enums.Role;
@@ -19,9 +20,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -58,24 +57,25 @@ class ProgressControllerIntegrationTest {
     private CategoryRepository categoryRepository;
 
     @Autowired
+    private ReviewRepository reviewRepository;
+
+    @Autowired
     private PasswordEncoder passwordEncoder;
 
     @Autowired
     private JwtService jwtService;
 
-    private Enrollment enrollment;
+    private static final String BASE_URL = "/api/v1/progress";
+
+    private User student;
+    private Course course;
     private Lesson lesson1;
     private Lesson lesson2;
-    private Lesson lesson3;
-    private User student;
     private String studentToken;
-
-    private String getBaseUrl() {
-        return "/api/v1/enrollments/" + enrollment.getId() + "/lessons";
-    }
 
     @BeforeEach
     void setUp() {
+        reviewRepository.deleteAll();
         progressRepository.deleteAll();
         enrollmentRepository.deleteAll();
         lessonRepository.deleteAll();
@@ -87,190 +87,119 @@ class ProgressControllerIntegrationTest {
         User instructor = createInstructor();
         student = createStudent();
         Category category = createCategory();
-        Course course = createCourse(instructor, category);
+        course = createCourse(instructor, category);
         Section section = createSection(course);
         lesson1 = createLesson(section, "Introduction", 1);
         lesson2 = createLesson(section, "Chapitre 1", 2);
-        lesson3 = createLesson(section, "Chapitre 2", 3);
-        enrollment = createEnrollment(student, course);
+        createEnrollment(student, course);
         studentToken = jwtService.generateToken(student);
     }
 
     @Nested
-    @DisplayName("GET /api/v1/enrollments/{enrollmentId}/lessons")
-    class GetProgressByEnrollmentTests {
+    @DisplayName("PUT /api/v1/progress/lessons/{lessonId}")
+    class UpdateProgressTests {
 
         @Test
-        @DisplayName("Devrait retourner la liste des progressions - 200")
-        void shouldReturnProgressList() throws Exception {
-            mockMvc.perform(get(getBaseUrl())
-                            .header("Authorization", "Bearer " + studentToken))
+        @DisplayName("Devrait mettre à jour la progression - 200")
+        void shouldUpdateProgressSuccessfully() throws Exception {
+            ProgressRequest request = new ProgressRequest();
+            request.setWatchTimeSeconds(120);
+            request.setLastPositionSeconds(100);
+
+            mockMvc.perform(put(BASE_URL + "/lessons/" + lesson1.getId())
+                            .header("Authorization", "Bearer " + studentToken)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$", hasSize(3)))
-                    .andExpect(jsonPath("$[0].lessonId").value(lesson1.getId()))
-                    .andExpect(jsonPath("$[0].completed").value(false));
+                    .andExpect(jsonPath("$.lessonId").value(lesson1.getId()))
+                    .andExpect(jsonPath("$.watchTimeSeconds").value(120))
+                    .andExpect(jsonPath("$.lastPositionSeconds").value(100));
         }
 
         @Test
-        @DisplayName("Devrait retourner 404 si inscription non trouvée")
-        void shouldReturn404WhenEnrollmentNotFound() throws Exception {
-            mockMvc.perform(get("/api/v1/enrollments/999/lessons")
-                            .header("Authorization", "Bearer " + studentToken))
-                    .andExpect(status().isNotFound());
+        @DisplayName("Devrait marquer comme complété - 200")
+        void shouldMarkAsCompleted() throws Exception {
+            ProgressRequest request = new ProgressRequest();
+            request.setCompleted(true);
+
+            mockMvc.perform(put(BASE_URL + "/lessons/" + lesson1.getId())
+                            .header("Authorization", "Bearer " + studentToken)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.completed").value(true))
+                    .andExpect(jsonPath("$.completedAt").isNotEmpty());
+        }
+
+        @Test
+        @DisplayName("Devrait retourner 401 sans authentification")
+        void shouldReturn401WithoutAuth() throws Exception {
+            ProgressRequest request = new ProgressRequest();
+
+            mockMvc.perform(put(BASE_URL + "/lessons/" + lesson1.getId())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isUnauthorized());
         }
     }
 
     @Nested
-    @DisplayName("GET /api/v1/enrollments/{enrollmentId}/lessons/{lessonId}")
+    @DisplayName("POST /api/v1/progress/lessons/{lessonId}/complete")
+    class MarkAsCompletedTests {
+
+        @Test
+        @DisplayName("Devrait marquer une leçon comme complétée - 200")
+        void shouldMarkLessonAsCompleted() throws Exception {
+            mockMvc.perform(post(BASE_URL + "/lessons/" + lesson1.getId() + "/complete")
+                            .header("Authorization", "Bearer " + studentToken))
+                    .andExpect(status().isOk());
+        }
+    }
+
+    @Nested
+    @DisplayName("GET /api/v1/progress/lessons/{lessonId}")
     class GetProgressTests {
 
         @Test
         @DisplayName("Devrait retourner la progression d'une leçon - 200")
         void shouldReturnLessonProgress() throws Exception {
-            mockMvc.perform(get(getBaseUrl() + "/" + lesson1.getId())
+            mockMvc.perform(get(BASE_URL + "/lessons/" + lesson1.getId())
                             .header("Authorization", "Bearer " + studentToken))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.lessonId").value(lesson1.getId()))
-                    .andExpect(jsonPath("$.lessonTitle").value("Introduction"))
                     .andExpect(jsonPath("$.completed").value(false));
         }
+    }
+
+    @Nested
+    @DisplayName("GET /api/v1/progress/courses/{courseId}")
+    class GetCourseProgressTests {
 
         @Test
-        @DisplayName("Devrait retourner 404 si progression non trouvée")
-        void shouldReturn404WhenProgressNotFound() throws Exception {
-            mockMvc.perform(get(getBaseUrl() + "/999")
+        @DisplayName("Devrait retourner les progressions du cours - 200")
+        void shouldReturnCourseProgress() throws Exception {
+            // Create some progress first
+            ProgressRequest request = new ProgressRequest();
+            request.setWatchTimeSeconds(60);
+
+            mockMvc.perform(put(BASE_URL + "/lessons/" + lesson1.getId())
+                    .header("Authorization", "Bearer " + studentToken)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(request)));
+
+            mockMvc.perform(get(BASE_URL + "/courses/" + course.getId())
                             .header("Authorization", "Bearer " + studentToken))
-                    .andExpect(status().isNotFound());
-        }
-    }
-
-    @Nested
-    @DisplayName("PUT /api/v1/enrollments/{enrollmentId}/lessons/{lessonId}/complete")
-    class MarkLessonCompletedTests {
-
-        @Test
-        @DisplayName("Devrait marquer une leçon comme complétée - 200")
-        void shouldMarkLessonAsCompleted() throws Exception {
-            mockMvc.perform(put(getBaseUrl() + "/" + lesson1.getId() + "/complete")
-                            .header("Authorization", "Bearer " + studentToken)
-                            .contentType(MediaType.APPLICATION_JSON))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.completed").value(true))
-                    .andExpect(jsonPath("$.completedAt").isNotEmpty());
-
-            Progress progress = progressRepository.findByEnrollmentIdAndLessonId(enrollment.getId(), lesson1.getId())
-                    .orElseThrow();
-            assertThat(progress.getCompleted()).isTrue();
-            assertThat(progress.getCompletedAt()).isNotNull();
+                    .andExpect(jsonPath("$", hasSize(greaterThanOrEqualTo(1))));
         }
 
         @Test
-        @DisplayName("Devrait être idempotent si déjà complétée")
-        void shouldBeIdempotentWhenAlreadyCompleted() throws Exception {
-            Progress progress = progressRepository.findByEnrollmentIdAndLessonId(enrollment.getId(), lesson1.getId())
-                    .orElseThrow();
-            progress.setCompleted(true);
-            progress.setCompletedAt(LocalDateTime.now().minusDays(1));
-            progressRepository.save(progress);
-
-            LocalDateTime originalCompletedAt = progress.getCompletedAt();
-
-            mockMvc.perform(put(getBaseUrl() + "/" + lesson1.getId() + "/complete")
-                            .header("Authorization", "Bearer " + studentToken)
-                            .contentType(MediaType.APPLICATION_JSON))
+        @DisplayName("Devrait retourner liste vide si aucune progression - 200")
+        void shouldReturnEmptyListWhenNoProgress() throws Exception {
+            mockMvc.perform(get(BASE_URL + "/courses/" + course.getId())
+                            .header("Authorization", "Bearer " + studentToken))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.completed").value(true));
-
-            Progress updatedProgress = progressRepository.findByEnrollmentIdAndLessonId(enrollment.getId(), lesson1.getId())
-                    .orElseThrow();
-            assertThat(updatedProgress.getCompletedAt()).isEqualTo(originalCompletedAt);
-        }
-
-        @Test
-        @DisplayName("Devrait marquer le cours comme complété quand 100%")
-        void shouldMarkCourseAsCompletedWhen100Percent() throws Exception {
-            progressRepository.findByEnrollmentId(enrollment.getId()).forEach(p -> {
-                if (!p.getLesson().getId().equals(lesson3.getId())) {
-                    p.setCompleted(true);
-                    p.setCompletedAt(LocalDateTime.now());
-                    progressRepository.save(p);
-                }
-            });
-
-            mockMvc.perform(put(getBaseUrl() + "/" + lesson3.getId() + "/complete")
-                            .header("Authorization", "Bearer " + studentToken)
-                            .contentType(MediaType.APPLICATION_JSON))
-                    .andExpect(status().isOk());
-
-            Enrollment updatedEnrollment = enrollmentRepository.findById(enrollment.getId()).orElseThrow();
-            assertThat(updatedEnrollment.getCompletedAt()).isNotNull();
-        }
-
-        @Test
-        @DisplayName("Devrait retourner 404 si progression non trouvée")
-        void shouldReturn404WhenProgressNotFound() throws Exception {
-            mockMvc.perform(put(getBaseUrl() + "/999/complete")
-                            .header("Authorization", "Bearer " + studentToken)
-                            .contentType(MediaType.APPLICATION_JSON))
-                    .andExpect(status().isNotFound());
-        }
-    }
-
-    @Nested
-    @DisplayName("PUT /api/v1/enrollments/{enrollmentId}/lessons/{lessonId}/incomplete")
-    class MarkLessonIncompleteTests {
-
-        @Test
-        @DisplayName("Devrait marquer une leçon comme non complétée - 200")
-        void shouldMarkLessonAsIncomplete() throws Exception {
-            Progress progress = progressRepository.findByEnrollmentIdAndLessonId(enrollment.getId(), lesson1.getId())
-                    .orElseThrow();
-            progress.setCompleted(true);
-            progress.setCompletedAt(LocalDateTime.now());
-            progressRepository.save(progress);
-
-            mockMvc.perform(put(getBaseUrl() + "/" + lesson1.getId() + "/incomplete")
-                            .header("Authorization", "Bearer " + studentToken)
-                            .contentType(MediaType.APPLICATION_JSON))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.completed").value(false))
-                    .andExpect(jsonPath("$.completedAt").isEmpty());
-
-            Progress updatedProgress = progressRepository.findByEnrollmentIdAndLessonId(enrollment.getId(), lesson1.getId())
-                    .orElseThrow();
-            assertThat(updatedProgress.getCompleted()).isFalse();
-            assertThat(updatedProgress.getCompletedAt()).isNull();
-        }
-
-        @Test
-        @DisplayName("Devrait être idempotent si déjà non complétée")
-        void shouldBeIdempotentWhenAlreadyIncomplete() throws Exception {
-            mockMvc.perform(put(getBaseUrl() + "/" + lesson1.getId() + "/incomplete")
-                            .header("Authorization", "Bearer " + studentToken)
-                            .contentType(MediaType.APPLICATION_JSON))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.completed").value(false));
-        }
-
-        @Test
-        @DisplayName("Devrait réinitialiser completedAt du cours")
-        void shouldResetCourseCompletion() throws Exception {
-            progressRepository.findByEnrollmentId(enrollment.getId()).forEach(p -> {
-                p.setCompleted(true);
-                p.setCompletedAt(LocalDateTime.now());
-                progressRepository.save(p);
-            });
-
-            enrollment.setCompletedAt(LocalDateTime.now());
-            enrollmentRepository.save(enrollment);
-
-            mockMvc.perform(put(getBaseUrl() + "/" + lesson1.getId() + "/incomplete")
-                            .header("Authorization", "Bearer " + studentToken)
-                            .contentType(MediaType.APPLICATION_JSON))
-                    .andExpect(status().isOk());
-
-            Enrollment updatedEnrollment = enrollmentRepository.findById(enrollment.getId()).orElseThrow();
-            assertThat(updatedEnrollment.getCompletedAt()).isNull();
+                    .andExpect(jsonPath("$", hasSize(0)));
         }
     }
 
@@ -336,18 +265,8 @@ class ProgressControllerIntegrationTest {
 
     private Enrollment createEnrollment(User student, Course course) {
         Enrollment e = new Enrollment();
-        e.setStudent(student);
+        e.setUser(student);
         e.setCourse(course);
-        e = enrollmentRepository.save(e);
-
-        for (Lesson lesson : lessonRepository.findByCourseIdOrderByOrderIndex(course.getId())) {
-            Progress progress = new Progress();
-            progress.setEnrollment(e);
-            progress.setLesson(lesson);
-            progress.setCompleted(false);
-            progressRepository.save(progress);
-        }
-
-        return e;
+        return enrollmentRepository.save(e);
     }
 }

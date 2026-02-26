@@ -1,23 +1,19 @@
 package com.sencours.service;
 
 import com.sencours.dto.request.ReviewRequest;
-import com.sencours.dto.request.ReviewUpdateRequest;
-import com.sencours.dto.response.CourseRatingResponse;
 import com.sencours.dto.response.ReviewResponse;
 
 import java.util.List;
 
 public interface ReviewService {
 
-    ReviewResponse createReview(Long courseId, Long userId, ReviewRequest request);
+    ReviewResponse createOrUpdate(Long courseId, ReviewRequest request, String userEmail);
 
-    List<ReviewResponse> getReviewsByCourse(Long courseId);
+    ReviewResponse getMyReview(Long courseId, String userEmail);
 
-    ReviewResponse getReviewById(Long courseId, Long reviewId);
+    List<ReviewResponse> getCourseReviews(Long courseId);
 
-    ReviewResponse updateReview(Long courseId, Long reviewId, Long userId, ReviewUpdateRequest request);
+    void delete(Long reviewId, String userEmail);
 
-    void deleteReview(Long courseId, Long reviewId, Long userId);
-
-    CourseRatingResponse getCourseRating(Long courseId);
+    Double getAverageRating(Long courseId);
 }

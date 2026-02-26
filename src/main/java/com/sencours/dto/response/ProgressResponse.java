@@ -16,7 +16,8 @@ public class ProgressResponse {
     private Long id;
     private Long lessonId;
     private String lessonTitle;
-    private Integer lessonOrderIndex;
     private Boolean completed;
     private LocalDateTime completedAt;
+    private Integer watchTimeSeconds;
+    private Integer lastPositionSeconds;
 }
