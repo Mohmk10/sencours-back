@@ -172,6 +172,9 @@ public class EnrollmentServiceImpl implements EnrollmentService {
         Long completedLessons = progressRepository.countCompletedLessonsByUserAndCourse(
                 enrollment.getUser().getId(), course.getId());
 
+        // Calculer le pourcentage en temps réel au lieu de lire la valeur stockée
+        int progressPercentage = totalLessons > 0 ? (int) ((completedLessons * 100) / totalLessons) : 0;
+
         return EnrollmentResponse.builder()
                 .id(enrollment.getId())
                 .courseId(course.getId())
@@ -181,7 +184,7 @@ public class EnrollmentServiceImpl implements EnrollmentService {
                 .userName(enrollment.getUser().getFirstName() + " " + enrollment.getUser().getLastName())
                 .enrolledAt(enrollment.getEnrolledAt())
                 .completedAt(enrollment.getCompletedAt())
-                .progressPercentage(enrollment.getProgressPercentage())
+                .progressPercentage(progressPercentage)
                 .paymentReference(enrollment.getPaymentReference())
                 .paymentMethod(enrollment.getPaymentMethod())
                 .amountPaid(enrollment.getAmountPaid())
