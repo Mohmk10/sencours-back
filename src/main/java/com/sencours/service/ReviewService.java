@@ -16,4 +16,6 @@ public interface ReviewService {
     void delete(Long reviewId, String userEmail);
 
     Double getAverageRating(Long courseId);
+
+    void deleteByAdmin(Long reviewId);
 }

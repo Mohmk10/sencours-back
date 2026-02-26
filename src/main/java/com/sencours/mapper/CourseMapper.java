@@ -62,8 +62,10 @@ public class CourseMapper {
                     .average()
                     .orElse(0.0);
             builder.averageRating(Math.round(avg * 10.0) / 10.0);
+            builder.reviewCount(entity.getReviews().size());
         } else {
             builder.averageRating(0.0);
+            builder.reviewCount(0);
         }
 
         if (entity.getSections() != null && !entity.getSections().isEmpty()) {

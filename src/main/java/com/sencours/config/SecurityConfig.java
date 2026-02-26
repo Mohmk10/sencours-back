@@ -93,9 +93,10 @@ public class SecurityConfig {
                         // Progress
                         .requestMatchers("/api/v1/progress/**").authenticated()
 
-                        // Reviews - lecture publique, écriture authentifiée
+                        // Reviews - lecture publique, admin delete, écriture authentifiée
                         .requestMatchers(HttpMethod.GET, "/api/v1/reviews/courses/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/reviews/courses/*/average").permitAll()
+                        .requestMatchers(HttpMethod.DELETE, "/api/v1/reviews/admin/*").hasAnyRole("ADMIN", "SUPER_ADMIN")
                         .requestMatchers("/api/v1/reviews/**").authenticated()
 
                         // Upload de fichiers - INSTRUCTEUR, ADMIN, SUPER_ADMIN

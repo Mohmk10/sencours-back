@@ -95,6 +95,14 @@ public class ReviewServiceImpl implements ReviewService {
         return avg != null ? Math.round(avg * 10.0) / 10.0 : 0.0;
     }
 
+    @Override
+    @Transactional
+    public void deleteByAdmin(Long reviewId) {
+        Review review = reviewRepository.findById(reviewId)
+                .orElseThrow(() -> new ResourceNotFoundException("Avis non trouvé"));
+        reviewRepository.delete(review);
+    }
+
     private ReviewResponse mapToResponse(Review review) {
         User user = review.getUser();
         String initials = (user.getFirstName().charAt(0) + "" + user.getLastName().charAt(0)).toUpperCase();

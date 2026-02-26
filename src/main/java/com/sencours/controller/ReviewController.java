@@ -61,4 +61,11 @@ public class ReviewController {
         reviewService.delete(reviewId, userDetails.getUsername());
         return ResponseEntity.noContent().build();
     }
+
+    @DeleteMapping("/admin/{reviewId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<Void> deleteByAdmin(@PathVariable Long reviewId) {
+        reviewService.deleteByAdmin(reviewId);
+        return ResponseEntity.noContent().build();
+    }
 }
