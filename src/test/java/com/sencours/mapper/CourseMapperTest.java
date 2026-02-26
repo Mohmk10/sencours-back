@@ -2,9 +2,7 @@ package com.sencours.mapper;
 
 import com.sencours.dto.request.CourseRequest;
 import com.sencours.dto.response.CourseResponse;
-import com.sencours.entity.Category;
-import com.sencours.entity.Course;
-import com.sencours.entity.User;
+import com.sencours.entity.*;
 import com.sencours.enums.Role;
 import com.sencours.enums.Status;
 import org.junit.jupiter.api.BeforeEach;
@@ -13,6 +11,7 @@ import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -66,8 +65,45 @@ class CourseMapperTest {
         assertThat(response.getInstructorId()).isEqualTo(1L);
         assertThat(response.getInstructorFirstName()).isEqualTo("Prof");
         assertThat(response.getInstructorLastName()).isEqualTo("Diop");
+        assertThat(response.getInstructorName()).isEqualTo("Prof Diop");
         assertThat(response.getCategoryId()).isEqualTo(1L);
         assertThat(response.getCategoryName()).isEqualTo("Développement Web");
+        assertThat(response.getTotalStudents()).isEqualTo(0);
+        assertThat(response.getAverageRating()).isEqualTo(0.0);
+    }
+
+    @Test
+    @DisplayName("Devrait calculer totalStudents et averageRating")
+    void shouldCalculateTotalStudentsAndAverageRating() {
+        Course entity = new Course();
+        entity.setId(1L);
+        entity.setTitle("Java pour débutants");
+        entity.setStatus(Status.PUBLISHED);
+        entity.setCreatedAt(LocalDateTime.now());
+        entity.setInstructor(instructor);
+        entity.setCategory(category);
+
+        Enrollment e1 = new Enrollment();
+        e1.setId(1L);
+        Enrollment e2 = new Enrollment();
+        e2.setId(2L);
+        entity.setEnrollments(List.of(e1, e2));
+
+        Review r1 = new Review();
+        r1.setId(1L);
+        r1.setRating(4);
+        Review r2 = new Review();
+        r2.setId(2L);
+        r2.setRating(5);
+        Review r3 = new Review();
+        r3.setId(3L);
+        r3.setRating(3);
+        entity.setReviews(List.of(r1, r2, r3));
+
+        CourseResponse response = courseMapper.toResponse(entity);
+
+        assertThat(response.getTotalStudents()).isEqualTo(2);
+        assertThat(response.getAverageRating()).isEqualTo(4.0);
     }
 
     @Test

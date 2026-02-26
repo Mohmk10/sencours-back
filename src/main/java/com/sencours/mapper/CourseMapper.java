@@ -34,15 +34,33 @@ public class CourseMapper {
                 .updatedAt(entity.getUpdatedAt());
 
         if (entity.getInstructor() != null) {
-            builder.instructorId(entity.getInstructor().getId())
-                    .instructorFirstName(entity.getInstructor().getFirstName())
-                    .instructorLastName(entity.getInstructor().getLastName())
-                    .instructorEmail(entity.getInstructor().getEmail());
+            User instructor = entity.getInstructor();
+            builder.instructorId(instructor.getId())
+                    .instructorFirstName(instructor.getFirstName())
+                    .instructorLastName(instructor.getLastName())
+                    .instructorName(instructor.getFirstName() + " " + instructor.getLastName())
+                    .instructorEmail(instructor.getEmail());
         }
 
         if (entity.getCategory() != null) {
             builder.categoryId(entity.getCategory().getId())
                     .categoryName(entity.getCategory().getName());
+        }
+
+        if (entity.getEnrollments() != null) {
+            builder.totalStudents(entity.getEnrollments().size());
+        } else {
+            builder.totalStudents(0);
+        }
+
+        if (entity.getReviews() != null && !entity.getReviews().isEmpty()) {
+            double avg = entity.getReviews().stream()
+                    .mapToInt(r -> r.getRating())
+                    .average()
+                    .orElse(0.0);
+            builder.averageRating(Math.round(avg * 10.0) / 10.0);
+        } else {
+            builder.averageRating(0.0);
         }
 
         if (entity.getSections() != null && !entity.getSections().isEmpty()) {

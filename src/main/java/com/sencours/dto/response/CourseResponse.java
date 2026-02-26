@@ -29,6 +29,7 @@ public class CourseResponse {
     private Long instructorId;
     private String instructorFirstName;
     private String instructorLastName;
+    private String instructorName;
     private String instructorEmail;
 
     private Long categoryId;
@@ -39,4 +40,6 @@ public class CourseResponse {
 
     private Integer totalLessons;
     private Integer totalDuration;
+    private Integer totalStudents;
+    private Double averageRating;
 }

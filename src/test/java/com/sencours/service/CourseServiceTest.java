@@ -100,8 +100,11 @@ class CourseServiceTest {
                 .instructorId(1L)
                 .instructorFirstName("Prof")
                 .instructorLastName("Diop")
+                .instructorName("Prof Diop")
                 .categoryId(1L)
                 .categoryName("Développement Web")
+                .totalStudents(0)
+                .averageRating(0.0)
                 .build();
     }
 
