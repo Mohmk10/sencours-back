@@ -93,6 +93,10 @@ public class SecurityConfig {
                         // Progress
                         .requestMatchers("/api/v1/progress/**").authenticated()
 
+                        // Certificates
+                        .requestMatchers(HttpMethod.GET, "/api/v1/certificates/verify/*").permitAll()
+                        .requestMatchers("/api/v1/certificates/**").authenticated()
+
                         // Reviews - lecture publique, admin delete, écriture authentifiée
                         .requestMatchers(HttpMethod.GET, "/api/v1/reviews/courses/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/reviews/courses/*/average").permitAll()
