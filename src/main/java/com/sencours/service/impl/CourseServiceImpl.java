@@ -1,6 +1,7 @@
 package com.sencours.service.impl;
 
 import com.sencours.dto.request.CourseRequest;
+import com.sencours.dto.request.CourseSearchRequest;
 import com.sencours.dto.response.CourseResponse;
 import com.sencours.dto.response.PageResponse;
 import com.sencours.entity.Category;
@@ -25,6 +26,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 
 @Slf4j
@@ -303,6 +306,64 @@ public class CourseServiceImpl implements CourseService {
                 .map(courseMapper::toResponse)
                 .toList();
         return PageResponse.of(page, content);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<CourseResponse> search(CourseSearchRequest request, Pageable pageable) {
+        log.debug("Recherche avancée de cours: {}", request);
+
+        BigDecimal minPrice = request.getMinPrice() != null ?
+                BigDecimal.valueOf(request.getMinPrice()) : null;
+        BigDecimal maxPrice = request.getMaxPrice() != null ?
+                BigDecimal.valueOf(request.getMaxPrice()) : null;
+
+        Page<Course> page = courseRepository.search(
+                request.getQuery(),
+                request.getCategoryId(),
+                minPrice,
+                maxPrice,
+                request.getFree(),
+                pageable
+        );
+
+        List<CourseResponse> content = page.getContent().stream()
+                .map(courseMapper::toResponse)
+                .toList();
+        return PageResponse.of(page, content);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<CourseResponse> searchByKeyword(String query, Pageable pageable) {
+        log.debug("Recherche rapide de cours: {}", query);
+
+        Page<Course> page;
+        if (query == null || query.trim().isEmpty()) {
+            page = courseRepository.findByStatus(Status.PUBLISHED, pageable);
+        } else {
+            page = courseRepository.searchByKeyword(query.trim(), pageable);
+        }
+
+        List<CourseResponse> content = page.getContent().stream()
+                .map(courseMapper::toResponse)
+                .toList();
+        return PageResponse.of(page, content);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<String> getSuggestions(String query) {
+        log.debug("Suggestions de recherche pour: {}", query);
+
+        if (query == null || query.trim().length() < 2) {
+            return new ArrayList<>();
+        }
+
+        return courseRepository.findTitleSuggestions(
+                query.trim(),
+                org.springframework.data.domain.PageRequest.of(0, 5)
+        );
     }
 
     private User validateAndGetInstructor(Long instructorId) {

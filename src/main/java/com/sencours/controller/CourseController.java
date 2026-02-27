@@ -9,6 +9,7 @@ import com.sencours.exception.BadRequestException;
 import com.sencours.exception.ResourceNotFoundException;
 import com.sencours.repository.UserRepository;
 import com.sencours.service.CourseService;
+import com.sencours.dto.request.CourseSearchRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -115,12 +116,66 @@ public class CourseController {
     }
 
     @GetMapping("/search")
-    @Operation(summary = "Rechercher des cours", description = "Recherche des cours par titre")
-    @ApiResponse(responseCode = "200", description = "Liste des cours correspondants")
-    public ResponseEntity<List<CourseResponse>> searchByTitle(
-            @Parameter(description = "Terme de recherche") @RequestParam String title) {
-        List<CourseResponse> courses = courseService.searchByTitle(title);
-        return ResponseEntity.ok(courses);
+    @Operation(summary = "Recherche avancée de cours", description = "Recherche de cours avec filtres (mot-clé, catégorie, prix, gratuit)")
+    @ApiResponse(responseCode = "200", description = "Résultats de recherche paginés")
+    public ResponseEntity<PageResponse<CourseResponse>> search(
+            @Parameter(description = "Terme de recherche") @RequestParam(required = false) String q,
+            @Parameter(description = "ID de catégorie") @RequestParam(required = false) Long categoryId,
+            @Parameter(description = "Prix minimum") @RequestParam(required = false) Double minPrice,
+            @Parameter(description = "Prix maximum") @RequestParam(required = false) Double maxPrice,
+            @Parameter(description = "Cours gratuits uniquement") @RequestParam(required = false) Boolean free,
+            @Parameter(description = "Tri: title, price, newest") @RequestParam(defaultValue = "newest") String sortBy,
+            @Parameter(description = "Direction: asc, desc") @RequestParam(defaultValue = "desc") String sortDirection,
+            @Parameter(description = "Numéro de page") @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Taille de page") @RequestParam(defaultValue = "12") int size) {
+
+        Sort sort = buildSearchSort(sortBy, sortDirection);
+        Pageable pageable = PageRequest.of(page, Math.min(Math.max(1, size), 50), sort);
+
+        CourseSearchRequest request = new CourseSearchRequest();
+        request.setQuery(q);
+        request.setCategoryId(categoryId);
+        request.setMinPrice(minPrice);
+        request.setMaxPrice(maxPrice);
+        request.setFree(free);
+
+        PageResponse<CourseResponse> results = courseService.search(request, pageable);
+        return ResponseEntity.ok(results);
+    }
+
+    @GetMapping("/search/quick")
+    @Operation(summary = "Recherche rapide", description = "Recherche simple par mot-clé")
+    @ApiResponse(responseCode = "200", description = "Résultats de recherche paginés")
+    public ResponseEntity<PageResponse<CourseResponse>> quickSearch(
+            @Parameter(description = "Terme de recherche") @RequestParam String q,
+            @Parameter(description = "Numéro de page") @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Taille de page") @RequestParam(defaultValue = "12") int size) {
+
+        Pageable pageable = PageRequest.of(page, Math.min(Math.max(1, size), 50), Sort.by(Sort.Direction.DESC, "createdAt"));
+        PageResponse<CourseResponse> results = courseService.searchByKeyword(q, pageable);
+        return ResponseEntity.ok(results);
+    }
+
+    @GetMapping("/search/suggestions")
+    @Operation(summary = "Suggestions de recherche", description = "Autocomplete pour la barre de recherche")
+    @ApiResponse(responseCode = "200", description = "Liste de suggestions de titres")
+    public ResponseEntity<List<String>> getSuggestions(
+            @Parameter(description = "Terme de recherche (min 2 caractères)") @RequestParam String q) {
+        List<String> suggestions = courseService.getSuggestions(q);
+        return ResponseEntity.ok(suggestions);
+    }
+
+    private Sort buildSearchSort(String sortBy, String sortDirection) {
+        Sort.Direction direction = "asc".equalsIgnoreCase(sortDirection) ?
+                Sort.Direction.ASC : Sort.Direction.DESC;
+
+        String field = switch (sortBy.toLowerCase()) {
+            case "title" -> "title";
+            case "price" -> "price";
+            default -> "createdAt";
+        };
+
+        return Sort.by(direction, field);
     }
 
     @PutMapping("/{id}")

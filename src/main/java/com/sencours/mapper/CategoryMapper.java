@@ -16,6 +16,7 @@ public class CategoryMapper {
                 .id(entity.getId())
                 .name(entity.getName())
                 .description(entity.getDescription())
+                .courseCount(entity.getCourses() != null ? (long) entity.getCourses().size() : 0L)
                 .build();
     }
 

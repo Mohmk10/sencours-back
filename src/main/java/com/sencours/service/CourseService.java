@@ -1,6 +1,7 @@
 package com.sencours.service;
 
 import com.sencours.dto.request.CourseRequest;
+import com.sencours.dto.request.CourseSearchRequest;
 import com.sencours.dto.response.CourseResponse;
 import com.sencours.dto.response.PageResponse;
 import com.sencours.enums.Status;
@@ -48,4 +49,11 @@ public interface CourseService {
     PageResponse<CourseResponse> searchByTitleAndStatusPaginated(String title, Status status, Pageable pageable);
 
     PageResponse<CourseResponse> getByCategoryIdAndStatusPaginated(Long categoryId, Status status, Pageable pageable);
+
+    // Search methods
+    PageResponse<CourseResponse> search(CourseSearchRequest request, Pageable pageable);
+
+    PageResponse<CourseResponse> searchByKeyword(String query, Pageable pageable);
+
+    List<String> getSuggestions(String query);
 }
