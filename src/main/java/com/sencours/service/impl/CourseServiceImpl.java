@@ -6,6 +6,7 @@ import com.sencours.dto.response.CourseResponse;
 import com.sencours.dto.response.PageResponse;
 import com.sencours.entity.Category;
 import com.sencours.entity.Course;
+import com.sencours.entity.Lesson;
 import com.sencours.entity.User;
 import com.sencours.enums.Role;
 import com.sencours.enums.Status;
@@ -19,6 +20,8 @@ import com.sencours.repository.CategoryRepository;
 import com.sencours.repository.CourseRepository;
 import com.sencours.repository.UserRepository;
 import com.sencours.service.CourseService;
+import com.sencours.service.FileStorageService;
+import com.sencours.service.YouTubeThumbnailService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -40,6 +43,8 @@ public class CourseServiceImpl implements CourseService {
     private final UserRepository userRepository;
     private final CategoryRepository categoryRepository;
     private final CourseMapper courseMapper;
+    private final FileStorageService fileStorageService;
+    private final YouTubeThumbnailService youTubeThumbnailService;
 
     @Override
     public CourseResponse create(CourseRequest request) {
@@ -50,6 +55,11 @@ public class CourseServiceImpl implements CourseService {
 
         Course course = courseMapper.toEntity(request, instructor, category);
         course.setStatus(Status.DRAFT);
+
+        // Resoudre le thumbnail (personnalise ou null pour un nouveau cours)
+        String thumbnailUrl = fileStorageService.resolveCourseThumbnail(
+                request.getThumbnailUrl(), null, null);
+        course.setThumbnailUrl(thumbnailUrl);
 
         Course savedCourse = courseRepository.save(course);
 
@@ -138,6 +148,9 @@ public class CourseServiceImpl implements CourseService {
         Course course = courseRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Cours", "id", id));
 
+        // Sauvegarder le thumbnail existant avant que le mapper ne l'ecrase
+        String existingThumbnailUrl = course.getThumbnailUrl();
+
         User instructor = null;
         if (!course.getInstructor().getId().equals(request.getInstructorId())) {
             instructor = validateAndGetInstructor(request.getInstructorId());
@@ -149,6 +162,13 @@ public class CourseServiceImpl implements CourseService {
         }
 
         courseMapper.updateEntityFromRequest(request, course, instructor, category);
+
+        // Resoudre le thumbnail avec fallback YouTube
+        String youtubeUrl = findFirstYouTubeUrl(course);
+        String thumbnailUrl = fileStorageService.resolveCourseThumbnail(
+                request.getThumbnailUrl(), youtubeUrl, existingThumbnailUrl);
+        course.setThumbnailUrl(thumbnailUrl);
+
         Course updatedCourse = courseRepository.save(course);
 
         log.info("Cours mis à jour avec succès. ID: {}", updatedCourse.getId());
@@ -380,5 +400,23 @@ public class CourseServiceImpl implements CourseService {
     private Category validateAndGetCategory(Long categoryId) {
         return categoryRepository.findById(categoryId)
                 .orElseThrow(() -> new ResourceNotFoundException("Catégorie", "id", categoryId));
+    }
+
+    /**
+     * Trouve la premiere URL YouTube dans les lecons d'un cours
+     */
+    private String findFirstYouTubeUrl(Course course) {
+        if (course.getSections() == null) {
+            return null;
+        }
+
+        return course.getSections().stream()
+                .filter(section -> section.getLessons() != null)
+                .flatMap(section -> section.getLessons().stream())
+                .filter(lesson -> lesson.getVideoUrl() != null
+                        && youTubeThumbnailService.isYouTubeUrl(lesson.getVideoUrl()))
+                .map(Lesson::getVideoUrl)
+                .findFirst()
+                .orElse(null);
     }
 }

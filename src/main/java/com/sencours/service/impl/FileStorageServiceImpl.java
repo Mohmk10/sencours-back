@@ -3,6 +3,7 @@ package com.sencours.service.impl;
 import com.sencours.exception.BadRequestException;
 import com.sencours.service.CloudinaryService;
 import com.sencours.service.FileStorageService;
+import com.sencours.service.YouTubeThumbnailService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -16,6 +17,7 @@ import java.util.Set;
 public class FileStorageServiceImpl implements FileStorageService {
 
     private final CloudinaryService cloudinaryService;
+    private final YouTubeThumbnailService youTubeThumbnailService;
 
     private static final Set<String> ALLOWED_VIDEO_EXTENSIONS = Set.of("mp4", "webm", "mov", "avi");
     private static final Set<String> ALLOWED_IMAGE_EXTENSIONS = Set.of("jpg", "jpeg", "png", "gif", "webp");
@@ -40,7 +42,6 @@ public class FileStorageServiceImpl implements FileStorageService {
 
         validateFile(file, type, extension);
 
-        // Upload vers Cloudinary dans le dossier correspondant au type
         String folder = type.toLowerCase() + "s";
         return cloudinaryService.uploadFile(file, folder);
     }
@@ -51,13 +52,48 @@ public class FileStorageServiceImpl implements FileStorageService {
             return;
         }
 
-        // Suppression Cloudinary
         if (fileUrl.contains("cloudinary.com")) {
             String publicId = cloudinaryService.extractPublicId(fileUrl);
             if (publicId != null) {
                 cloudinaryService.deleteFile(publicId);
             }
         }
+    }
+
+    /**
+     * Determine le thumbnail a utiliser pour un cours.
+     * Priorite :
+     * 1. Thumbnail personnalise (URL Cloudinary fournie par le client)
+     * 2. Thumbnail existant valide (Cloudinary ou YouTube)
+     * 3. Thumbnail YouTube extrait automatiquement
+     * 4. Thumbnail existant tel quel
+     */
+    @Override
+    public String resolveCourseThumbnail(String customThumbnailUrl, String youtubeUrl, String existingThumbnailUrl) {
+        // Priorite 1 : Thumbnail personnalise fourni
+        if (customThumbnailUrl != null && !customThumbnailUrl.isBlank()) {
+            log.info("Utilisation du thumbnail personnalise");
+            return customThumbnailUrl;
+        }
+
+        // Priorite 2 : Garder le thumbnail existant s'il est valide
+        if (existingThumbnailUrl != null && !existingThumbnailUrl.isBlank()
+                && (existingThumbnailUrl.startsWith("https://res.cloudinary.com")
+                || existingThumbnailUrl.startsWith("https://img.youtube.com"))) {
+            log.info("Conservation du thumbnail existant: {}", existingThumbnailUrl);
+            return existingThumbnailUrl;
+        }
+
+        // Priorite 3 : Extraire thumbnail YouTube
+        if (youtubeUrl != null && !youtubeUrl.isBlank()) {
+            String youtubeThumbnail = youTubeThumbnailService.getThumbnailUrl(youtubeUrl);
+            if (youtubeThumbnail != null) {
+                log.info("Utilisation du thumbnail YouTube: {}", youtubeThumbnail);
+                return youtubeThumbnail;
+            }
+        }
+
+        return existingThumbnailUrl;
     }
 
     private void validateFile(MultipartFile file, String type, String extension) {
