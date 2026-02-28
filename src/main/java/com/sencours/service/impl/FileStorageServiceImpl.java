@@ -1,27 +1,21 @@
 package com.sencours.service.impl;
 
 import com.sencours.exception.BadRequestException;
+import com.sencours.service.CloudinaryService;
 import com.sencours.service.FileStorageService;
-import org.springframework.beans.factory.annotation.Value;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.util.Set;
-import java.util.UUID;
 
 @Service
+@RequiredArgsConstructor
+@Slf4j
 public class FileStorageServiceImpl implements FileStorageService {
 
-    @Value("${app.upload.dir:uploads}")
-    private String uploadDir;
-
-    @Value("${app.base-url:http://localhost:8080}")
-    private String baseUrl;
+    private final CloudinaryService cloudinaryService;
 
     private static final Set<String> ALLOWED_VIDEO_EXTENSIONS = Set.of("mp4", "webm", "mov", "avi");
     private static final Set<String> ALLOWED_IMAGE_EXTENSIONS = Set.of("jpg", "jpeg", "png", "gif", "webp");
@@ -46,36 +40,23 @@ public class FileStorageServiceImpl implements FileStorageService {
 
         validateFile(file, type, extension);
 
-        String subDir = type.toLowerCase() + "s";
-        Path uploadPath = Paths.get(uploadDir, subDir);
-
-        try {
-            Files.createDirectories(uploadPath);
-
-            String newFilename = UUID.randomUUID().toString() + "." + extension;
-            Path filePath = uploadPath.resolve(newFilename);
-
-            Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
-
-            return baseUrl + "/uploads/" + subDir + "/" + newFilename;
-
-        } catch (IOException e) {
-            throw new BadRequestException("Erreur lors de l'upload du fichier: " + e.getMessage());
-        }
+        // Upload vers Cloudinary dans le dossier correspondant au type
+        String folder = type.toLowerCase() + "s";
+        return cloudinaryService.uploadFile(file, folder);
     }
 
     @Override
     public void deleteFile(String fileUrl) {
-        if (fileUrl == null || !fileUrl.contains("/uploads/")) {
+        if (fileUrl == null || fileUrl.isEmpty()) {
             return;
         }
 
-        try {
-            String relativePath = fileUrl.substring(fileUrl.indexOf("/uploads/") + 9);
-            Path filePath = Paths.get(uploadDir, relativePath);
-            Files.deleteIfExists(filePath);
-        } catch (IOException e) {
-            // Logged but does not fail the operation
+        // Suppression Cloudinary
+        if (fileUrl.contains("cloudinary.com")) {
+            String publicId = cloudinaryService.extractPublicId(fileUrl);
+            if (publicId != null) {
+                cloudinaryService.deleteFile(publicId);
+            }
         }
     }
 
